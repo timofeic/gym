@@ -43,15 +43,15 @@ export default function RecentWorkouts() {
         id: '1',
         date: '2023-06-01',
         exercises: [
-          { id: '1', name: 'Bench Press', sets: 3, reps: 10, weight: 135 },
-          { id: '2', name: 'Squats', sets: 3, reps: 10, weight: 185 },
+          { id: '1', name: 'Bench Press', sets: 3, reps: 10, weight: 60 },
+          { id: '2', name: 'Squats', sets: 3, reps: 10, weight: 80 },
         ]
       },
       {
         id: '2',
         date: '2023-06-03',
         exercises: [
-          { id: '3', name: 'Deadlift', sets: 3, reps: 8, weight: 225 },
+          { id: '3', name: 'Deadlift', sets: 3, reps: 8, weight: 100 },
           { id: '4', name: 'Pull-ups', sets: 3, reps: 10, weight: 0 },
         ]
       },

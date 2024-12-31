@@ -17,9 +17,9 @@ export default function ExerciseList() {
   useEffect(() => {
     // In a real app, this data would come from your API
     const mockExercises: Exercise[] = [
-      { id: '1', name: 'Bench Press', defaultSets: 3, defaultReps: 10, defaultWeight: 135 },
-      { id: '2', name: 'Squats', defaultSets: 3, defaultReps: 10, defaultWeight: 185 },
-      { id: '3', name: 'Deadlift', defaultSets: 3, defaultReps: 8, defaultWeight: 225 },
+      { id: '1', name: 'Bench Press', defaultSets: 3, defaultReps: 10, defaultWeight: 60 },
+      { id: '2', name: 'Squats', defaultSets: 3, defaultReps: 10, defaultWeight: 80 },
+      { id: '3', name: 'Deadlift', defaultSets: 3, defaultReps: 8, defaultWeight: 100 },
       { id: '4', name: 'Pull-ups', defaultSets: 3, defaultReps: 10, defaultWeight: 0 },
     ]
     setExercises(mockExercises)
@@ -36,7 +36,7 @@ export default function ExerciseList() {
           <CardContent>
             <p>Default Sets: {exercise.defaultSets}</p>
             <p>Default Reps: {exercise.defaultReps}</p>
-            <p>Default Weight: {exercise.defaultWeight} lbs</p>
+            <p>Default Weight: {exercise.defaultWeight} kg</p>
           </CardContent>
         </Card>
       ))}
