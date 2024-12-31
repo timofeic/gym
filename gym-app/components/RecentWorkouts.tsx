@@ -76,7 +76,7 @@ export default function RecentWorkouts() {
             <ul className="list-disc list-inside">
               {workout.exercises.map((exercise, index) => (
                 <li key={index}>
-                  {exercise.name}: {exercise.sets} sets x {exercise.reps} reps @ {exercise.weight} lbs
+                  {exercise.name}: {exercise.sets} sets x {exercise.reps} reps @ {exercise.weight} kgs
                 </li>
               ))}
             </ul>

@@ -121,7 +121,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultWeight: Math.max(0, exercise.defaultWeight - 5) })}
+              onClick={() => setExercise({ ...exercise, defaultWeight: Math.max(0, exercise.defaultWeight - 2.5) })}
               className="h-8 w-8"
             >
               <MinusCircle className="h-4 w-4" />
