@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PlusCircle, MinusCircle } from 'lucide-react'
+import { getAuthenticatedClient } from '@/lib/supabase'
+import { useSession } from 'next-auth/react'
 
 type Exercise = {
   id: string
   name: string
-  defaultSets: number
-  defaultReps: number
-  defaultWeight: number
+  sets: number
+  reps: number
+  weight: number
 }
 
 interface AddExerciseFormProps {
@@ -19,65 +21,80 @@ interface AddExerciseFormProps {
 }
 
 export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
-  const [exercise, setExercise] = useState<Exercise>({
-    id: '',
+  const { data: session } = useSession()
+  const [exercise, setExercise] = useState<Omit<Exercise, 'id'>>({
     name: '',
-    defaultSets: 3,
-    defaultReps: 10,
-    defaultWeight: 0
+    sets: 3,
+    reps: 10,
+    weight: 0
   })
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Here you would typically send the data to your API
-    console.log('Adding exercise:', exercise)
-    // Reset form after submission
-    setExercise({
-      id: '',
-      name: '',
-      defaultSets: 3,
-      defaultReps: 10,
-      defaultWeight: 0
-    })
-    onComplete()
+    if (!session?.supabaseAccessToken) {
+      setError('You must be logged in to add exercises')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+      const { error: supabaseError } = await supabase
+        .from('exercises')
+        .insert([exercise])
+
+      if (supabaseError) throw supabaseError
+
+      onComplete()
+    } catch (err) {
+      console.error('Error adding exercise:', err)
+      setError('Failed to add exercise')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mb-8">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="space-y-2">
-        <Label htmlFor="exercise-name">Exercise Name</Label>
+        <Label htmlFor="name">Exercise Name</Label>
         <Input
-          id="exercise-name"
+          id="name"
           value={exercise.name}
           onChange={(e) => setExercise({ ...exercise, name: e.target.value })}
-          placeholder="Enter exercise name"
+          required
         />
       </div>
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="default-sets">Default Sets</Label>
+          <Label htmlFor="sets">Default Sets</Label>
           <div className="flex items-center">
             <Button
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultSets: Math.max(1, exercise.defaultSets - 1) })}
+              onClick={() => setExercise({ ...exercise, sets: Math.max(1, exercise.sets - 1) })}
               className="h-8 w-8"
             >
               <MinusCircle className="h-4 w-4" />
             </Button>
             <Input
-              id="default-sets"
+              id="sets"
               type="number"
-              value={exercise.defaultSets}
-              onChange={(e) => setExercise({ ...exercise, defaultSets: parseInt(e.target.value) })}
+              value={exercise.sets}
+              onChange={(e) => setExercise({ ...exercise, sets: parseInt(e.target.value) })}
               className="w-12 text-center mx-1 px-0"
             />
             <Button
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultSets: exercise.defaultSets + 1 })}
+              onClick={() => setExercise({ ...exercise, sets: exercise.sets + 1 })}
               className="h-8 w-8"
             >
               <PlusCircle className="h-4 w-4" />
@@ -85,29 +102,29 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="default-reps">Default Reps</Label>
+          <Label htmlFor="reps">Default Reps</Label>
           <div className="flex items-center">
             <Button
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultReps: Math.max(1, exercise.defaultReps - 1) })}
+              onClick={() => setExercise({ ...exercise, reps: Math.max(1, exercise.reps - 1) })}
               className="h-8 w-8"
             >
               <MinusCircle className="h-4 w-4" />
             </Button>
             <Input
-              id="default-reps"
+              id="reps"
               type="number"
-              value={exercise.defaultReps}
-              onChange={(e) => setExercise({ ...exercise, defaultReps: parseInt(e.target.value) })}
+              value={exercise.reps}
+              onChange={(e) => setExercise({ ...exercise, reps: parseInt(e.target.value) })}
               className="w-12 text-center mx-1 px-0"
             />
             <Button
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultReps: exercise.defaultReps + 1 })}
+              onClick={() => setExercise({ ...exercise, reps: exercise.reps + 1 })}
               className="h-8 w-8"
             >
               <PlusCircle className="h-4 w-4" />
@@ -115,29 +132,29 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="default-weight">Default Weight</Label>
+          <Label htmlFor="weight">Default Weight</Label>
           <div className="flex items-center">
             <Button
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultWeight: Math.max(0, exercise.defaultWeight - 2.5) })}
+              onClick={() => setExercise({ ...exercise, weight: Math.max(0, exercise.weight - 2.5) })}
               className="h-8 w-8"
             >
               <MinusCircle className="h-4 w-4" />
             </Button>
             <Input
-              id="default-weight"
+              id="weight"
               type="number"
-              value={exercise.defaultWeight}
-              onChange={(e) => setExercise({ ...exercise, defaultWeight: parseFloat(e.target.value) })}
+              value={exercise.weight}
+              onChange={(e) => setExercise({ ...exercise, weight: parseFloat(e.target.value) })}
               className="w-12 text-center mx-1 px-0"
             />
             <Button
               type="button"
               size="icon"
               variant="outline"
-              onClick={() => setExercise({ ...exercise, defaultWeight: exercise.defaultWeight + 5 })}
+              onClick={() => setExercise({ ...exercise, weight: exercise.weight + 2.5 })}
               className="h-8 w-8"
             >
               <PlusCircle className="h-4 w-4" />
@@ -145,7 +162,9 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
           </div>
         </div>
       </div>
-      <Button type="submit" className="w-full">Add Exercise</Button>
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? 'Adding Exercise...' : 'Add Exercise'}
+      </Button>
     </form>
   )
 }
