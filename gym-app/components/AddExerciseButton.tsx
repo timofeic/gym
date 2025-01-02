@@ -11,8 +11,17 @@ import {
 } from "@/components/ui/dialog"
 import AddExerciseForm from './AddExerciseForm'
 
-export default function AddExerciseButton() {
+interface AddExerciseButtonProps {
+  onExerciseAdded?: () => void
+}
+
+export default function AddExerciseButton({ onExerciseAdded }: AddExerciseButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
+
+  const handleComplete = () => {
+    setIsOpen(false)
+    onExerciseAdded?.()
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -23,7 +32,7 @@ export default function AddExerciseButton() {
         <DialogHeader>
           <DialogTitle>Add New Exercise</DialogTitle>
         </DialogHeader>
-        <AddExerciseForm onComplete={() => setIsOpen(false)} />
+        <AddExerciseForm onComplete={handleComplete} />
       </DialogContent>
     </Dialog>
   )
