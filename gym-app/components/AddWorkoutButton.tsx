@@ -11,19 +11,28 @@ import {
 } from "@/components/ui/dialog"
 import AddWorkoutForm from './AddWorkoutForm'
 
-export default function AddWorkoutButton() {
+interface AddWorkoutButtonProps {
+  onWorkoutAdded?: () => void
+}
+
+export default function AddWorkoutButton({ onWorkoutAdded }: AddWorkoutButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
+
+  const handleComplete = () => {
+    setIsOpen(false)
+    onWorkoutAdded?.()
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button className="w-full mb-6">Add Workout</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
+      <DialogContent className="sm:max-w-[425px] w-[95vw] !max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add New Workout</DialogTitle>
         </DialogHeader>
-        <AddWorkoutForm onComplete={() => setIsOpen(false)} />
+        <AddWorkoutForm onComplete={handleComplete} />
       </DialogContent>
     </Dialog>
   )

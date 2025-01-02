@@ -4,7 +4,14 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PlusCircle, MinusCircle } from 'lucide-react'
+import { getAuthenticatedClient } from '@/lib/supabase'
+import { useSession } from 'next-auth/react'
+
+const VALIDATION = {
+  sets: { min: 1, max: 10 },
+  reps: { min: 1, max: 100 },
+  weight: { min: 0, max: 500 }
+} as const
 
 type Exercise = {
   id: string
@@ -14,144 +21,149 @@ type Exercise = {
   weight: number
 }
 
-export default function CopyWorkoutForm({ exercises: initialExercises, onComplete }: { 
-  exercises: Exercise[], 
-  onComplete: () => void 
-}) {
-  const [exercises, setExercises] = useState<Exercise[]>(
-    initialExercises.map(ex => ({
-      ...ex,
-      id: Date.now() + Math.random().toString()
-    }))
-  )
+interface CopyWorkoutFormProps {
+  exercises: Exercise[]
+  onComplete: () => void
+}
 
-  const updateExercise = (id: string, field: keyof Exercise, value: string | number) => {
-    setExercises(exercises.map(ex =>
-      ex.id === id ? { ...ex, [field]: value } : ex
-    ))
-  }
+export default function CopyWorkoutForm({ exercises: initialExercises, onComplete }: CopyWorkoutFormProps) {
+  const { data: session } = useSession()
+  const [exercises, setExercises] = useState<Exercise[]>(initialExercises)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const removeExercise = (id: string) => {
-    setExercises(exercises.filter(ex => ex.id !== id))
+  const updateExercise = (index: number, field: keyof Exercise, value: number) => {
+    setExercises(prev => {
+      const newExercises = prev.map((exercise, i) => {
+        if (i !== index) return exercise
+
+        // Clamp the value within valid range
+        let clampedValue = value
+        if (field === 'sets') {
+          clampedValue = Math.min(Math.max(value, VALIDATION.sets.min), VALIDATION.sets.max)
+        } else if (field === 'reps') {
+          clampedValue = Math.min(Math.max(value, VALIDATION.reps.min), VALIDATION.reps.max)
+        } else if (field === 'weight') {
+          clampedValue = Math.min(Math.max(value, VALIDATION.weight.min), VALIDATION.weight.max)
+        }
+
+        return { ...exercise, [field]: clampedValue }
+      })
+      return newExercises
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Here you would typically send the data to your API
-    console.log('Saving copied workout:', exercises)
-    onComplete()
+    if (!session?.supabaseAccessToken || !session.user?.id) {
+      setError('You must be logged in to copy a workout')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+
+      // Create new workout
+      const { data: workout, error: workoutError } = await supabase
+        .from('workouts')
+        .insert([{
+          user_id: session.user.id
+        }])
+        .select()
+        .single()
+
+      if (workoutError) throw workoutError
+
+      // Create workout exercises
+      const workoutExercises = exercises.map(exercise => ({
+        workout_id: workout.id,
+        exercise_id: exercise.id,
+        sets: exercise.sets,
+        reps: exercise.reps,
+        weight: exercise.weight
+      }))
+
+      const { error: exercisesError } = await supabase
+        .from('workout_exercises')
+        .insert(workoutExercises)
+
+      if (exercisesError) throw exercisesError
+
+      onComplete()
+    } catch (err) {
+      console.error('Error copying workout:', err)
+      setError('Failed to copy workout')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto">
-      {exercises.map((exercise, index) => (
-        <div key={exercise.id} className="space-y-2 max-w-full">
-          <Label htmlFor={`exercise-${index}`}>Exercise {index + 1}</Label>
-          <Input
-            id={`exercise-${index}`}
-            value={exercise.name}
-            onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
-            placeholder="Exercise name"
-            className="mb-2"
-          />
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-2">
-              <Label htmlFor={`sets-${index}`}>Sets</Label>
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => updateExercise(exercise.id, 'sets', Math.max(1, exercise.sets - 1))}
-                  className="h-8 w-8"
-                >
-                  <MinusCircle className="h-4 w-4" />
-                </Button>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <div className="space-y-4">
+        {exercises.map((exercise, index) => (
+          <div key={index} className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">{exercise.name}</h3>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={`sets-${index}`}>Sets</Label>
                 <Input
                   id={`sets-${index}`}
                   type="number"
                   value={exercise.sets}
-                  onChange={(e) => updateExercise(exercise.id, 'sets', parseInt(e.target.value))}
-                  className="w-12 text-center mx-1 px-0"
+                  onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value))}
+                  min={VALIDATION.sets.min}
+                  max={VALIDATION.sets.max}
+                  className="w-full"
                 />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => updateExercise(exercise.id, 'sets', exercise.sets + 1)}
-                  className="h-8 w-8"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`reps-${index}`}>Reps</Label>
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => updateExercise(exercise.id, 'reps', Math.max(1, exercise.reps - 1))}
-                  className="h-8 w-8"
-                >
-                  <MinusCircle className="h-4 w-4" />
-                </Button>
+
+              <div className="space-y-2">
+                <Label htmlFor={`reps-${index}`}>Reps</Label>
                 <Input
                   id={`reps-${index}`}
                   type="number"
                   value={exercise.reps}
-                  onChange={(e) => updateExercise(exercise.id, 'reps', parseInt(e.target.value))}
-                  className="w-12 text-center mx-1 px-0"
+                  onChange={(e) => updateExercise(index, 'reps', parseInt(e.target.value))}
+                  min={VALIDATION.reps.min}
+                  max={VALIDATION.reps.max}
+                  className="w-full"
                 />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => updateExercise(exercise.id, 'reps', exercise.reps + 1)}
-                  className="h-8 w-8"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`weight-${index}`}>Weight</Label>
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => updateExercise(exercise.id, 'weight', Math.max(0, exercise.weight - 5))}
-                  className="h-8 w-8"
-                >
-                  <MinusCircle className="h-4 w-4" />
-                </Button>
+
+              <div className="space-y-2">
+                <Label htmlFor={`weight-${index}`}>Weight (kg)</Label>
                 <Input
                   id={`weight-${index}`}
                   type="number"
                   value={exercise.weight}
-                  onChange={(e) => updateExercise(exercise.id, 'weight', parseFloat(e.target.value))}
-                  className="w-12 text-center mx-1 px-0"
+                  onChange={(e) => updateExercise(index, 'weight', parseFloat(e.target.value))}
+                  min={VALIDATION.weight.min}
+                  max={VALIDATION.weight.max}
+                  step="0.5"
+                  className="w-full"
                 />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => updateExercise(exercise.id, 'weight', exercise.weight + 5)}
-                  className="h-8 w-8"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </div>
-          <Button type="button" variant="destructive" onClick={() => removeExercise(exercise.id)} className="w-full mt-2">
-            Remove Exercise
-          </Button>
-        </div>
-      ))}
-      <Button type="submit" className="w-full">Save Workout</Button>
+        ))}
+      </div>
+
+      <Button 
+        type="submit" 
+        className="w-full" 
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? 'Copying Workout...' : 'Copy Workout'}
+      </Button>
     </form>
   )
 }
