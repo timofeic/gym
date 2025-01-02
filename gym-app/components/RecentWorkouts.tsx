@@ -29,27 +29,27 @@ type Exercise = {
   weight: number
 }
 
-type WorkoutExercise = {
-  exercise_id: string
-  sets: number
-  reps: number
-  weight: number
-  exercises: {
-    id: string
-    name: string
-  }
-}
-
-type WorkoutResponse = {
-  id: string
-  date: string
-  workout_exercises: WorkoutExercise[]
-}
-
 type Workout = {
   id: string
   date: string
   exercises: Exercise[]
+}
+
+type WorkoutExercise = {
+  exercise_id: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  exercises: {
+    id: string;
+    name: string;
+  };
+}
+
+type WorkoutData = {
+  id: string;
+  date: string;
+  workout_exercises: WorkoutExercise[];
 }
 
 interface RecentWorkoutsProps {
@@ -88,7 +88,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           )
         `)
         .order('date', { ascending: false })
-        .limit(5)
+        .limit(5) as { data: WorkoutData[] | null, error: Error | null }
 
       if (workoutsError) throw workoutsError
 
