@@ -90,8 +90,6 @@ export default function WorkoutChart() {
           }
         })
 
-        console.log('Week Data Structure:', weekData)
-
         // Count workouts for each day
         workouts?.forEach(workout => {
           // Convert UTC workout date to local date string
@@ -99,12 +97,6 @@ export default function WorkoutChart() {
           const dayData = weekData.find(d => d.date === workoutDate)
           if (dayData) {
             dayData.workouts++
-            console.log('Workout counted:', {
-              utcDate: workout.date,
-              localDate: workoutDate,
-              matchedDay: dayData.day,
-              newCount: dayData.workouts
-            })
           } else {
             console.log('Workout not matched:', {
               utcDate: workout.date,
@@ -114,7 +106,6 @@ export default function WorkoutChart() {
           }
         })
 
-        console.log('Final Chart Data:', weekData)
         setChartData(weekData)
       } catch (err) {
         console.error('Error fetching workouts:', err)

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Dumbbell } from 'lucide-react'
+import { Home, Dumbbell, LineChart } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 export function BottomNav() {
@@ -17,6 +17,13 @@ export function BottomNav() {
         )}>
           <Home className="h-6 w-6" />
           {/* <span>Dashboard</span> */}
+        </Link>
+        <Link href="/progress" className={cn(
+          "flex flex-col items-center p-2 text-sm",
+          pathname === "/progress" ? "text-primary" : "text-muted-foreground"
+        )}>
+          <LineChart className="h-6 w-6" />
+          {/* <span>Progress</span> */}
         </Link>
         <Link href="/exercises" className={cn(
           "flex flex-col items-center p-2 text-sm",
