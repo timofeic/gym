@@ -77,7 +77,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
             <Button
               type="button"
               size="icon"
-              variant="outline"
+              variant="ghost"
               onClick={() => setExercise({ ...exercise, sets: Math.max(1, exercise.sets - 1) })}
               className="h-8 w-8"
             >
@@ -93,7 +93,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
             <Button
               type="button"
               size="icon"
-              variant="outline"
+              variant="ghost"
               onClick={() => setExercise({ ...exercise, sets: exercise.sets + 1 })}
               className="h-8 w-8"
             >
@@ -107,7 +107,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
             <Button
               type="button"
               size="icon"
-              variant="outline"
+              variant="ghost"
               onClick={() => setExercise({ ...exercise, reps: Math.max(1, exercise.reps - 1) })}
               className="h-8 w-8"
             >
@@ -123,7 +123,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
             <Button
               type="button"
               size="icon"
-              variant="outline"
+              variant="ghost"
               onClick={() => setExercise({ ...exercise, reps: exercise.reps + 1 })}
               className="h-8 w-8"
             >
@@ -137,7 +137,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
             <Button
               type="button"
               size="icon"
-              variant="outline"
+              variant="ghost"
               onClick={() => setExercise({ ...exercise, weight: Math.max(0, exercise.weight - 2.5) })}
               className="h-8 w-8"
             >
@@ -153,7 +153,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
             <Button
               type="button"
               size="icon"
-              variant="outline"
+              variant="ghost"
               onClick={() => setExercise({ ...exercise, weight: exercise.weight + 2.5 })}
               className="h-8 w-8"
             >

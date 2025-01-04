@@ -15,11 +15,20 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
-import { RefreshCcw, AlertCircle, Copy } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { RefreshCcw, AlertCircle, Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import CopyWorkoutForm from './CopyWorkoutForm'
+import EditWorkoutForm from './EditWorkoutForm'
 
 type Exercise = {
   id: string
@@ -60,9 +69,12 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
   const { data: session } = useSession()
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null)
+  const [workoutToEdit, setWorkoutToEdit] = useState<Workout | null>(null)
+  const [workoutToDelete, setWorkoutToDelete] = useState<Workout | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const fetchWorkouts = async () => {
     if (!session?.supabaseAccessToken) return
@@ -137,6 +149,41 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
     handleManualRefresh()
   }
 
+  const handleDeleteWorkout = async () => {
+    if (!session?.supabaseAccessToken || !workoutToDelete) return
+
+    setIsDeleting(true)
+    setError(null)
+
+    try {
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+
+      // Delete workout exercises first (foreign key constraint)
+      const { error: exercisesError } = await supabase
+        .from('workout_exercises')
+        .delete()
+        .eq('workout_id', workoutToDelete.id)
+
+      if (exercisesError) throw exercisesError
+
+      // Delete the workout
+      const { error: workoutError } = await supabase
+        .from('workouts')
+        .delete()
+        .eq('id', workoutToDelete.id)
+
+      if (workoutError) throw workoutError
+
+      setWorkoutToDelete(null)
+      handleManualRefresh()
+    } catch (err) {
+      console.error('Error deleting workout:', err)
+      setError('Failed to delete workout')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -200,8 +247,32 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
         workouts.map(workout => (
           <Card key={workout.id}>
             <CardHeader>
-              <CardTitle>{new Date(workout.date).toLocaleDateString()}</CardTitle>
-              <CardDescription>{workout.exercises.length} exercises</CardDescription>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle>{new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long' })} {new Date(workout.date).toLocaleDateString()}</CardTitle>
+                  <CardDescription>{workout.exercises.length} exercises</CardDescription>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setWorkoutToEdit(workout)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setWorkoutToDelete(workout)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </CardHeader>
             <CardContent>
               <ul className="list-disc list-inside">
@@ -214,7 +285,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
             </CardContent>
             <CardFooter>
               <Button onClick={() => setSelectedWorkout(workout)}>
-                <Copy className="h-4 w-4" />
+                <Copy className="h-4 w-4 mr-2" />
                 Copy Workout
               </Button>
             </CardFooter>
@@ -222,6 +293,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
         ))
       )}
 
+      {/* Copy Workout Dialog */}
       <Dialog open={!!selectedWorkout} onOpenChange={() => setSelectedWorkout(null)}>
         <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
           <DialogHeader>
@@ -233,6 +305,52 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
               onComplete={handleCopyComplete} 
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Workout Dialog */}
+      <Dialog open={!!workoutToEdit} onOpenChange={() => setWorkoutToEdit(null)}>
+        <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Edit Workout</DialogTitle>
+          </DialogHeader>
+          {workoutToEdit && (
+            <EditWorkoutForm 
+              workout={workoutToEdit} 
+              onComplete={() => {
+                setWorkoutToEdit(null)
+                handleManualRefresh()
+              }} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!workoutToDelete} onOpenChange={() => setWorkoutToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Workout</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this workout? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setWorkoutToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteWorkout}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
