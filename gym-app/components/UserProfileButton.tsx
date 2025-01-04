@@ -1,0 +1,68 @@
+"use client"
+
+import { useTheme } from "next-themes"
+import { useSession, signOut } from "next-auth/react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Moon, Sun, User, LogOut } from "lucide-react"
+
+export function UserProfileButton() {
+  const { theme, setTheme } = useTheme()
+  const { data: session } = useSession()
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="rounded-full bg-white dark:bg-gray-800 border-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <User className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {session?.user?.email && (
+          <>
+            <DropdownMenuItem className="flex-col items-start">
+              <div className="font-medium">Signed in as</div>
+              <div className="text-sm text-muted-foreground truncate">
+                {session.user.email}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="cursor-pointer"
+        >
+          {theme === "dark" ? (
+            <>
+              <Sun className="h-4 w-4 mr-2" />
+              Light Mode
+            </>
+          ) : (
+            <>
+              <Moon className="h-4 w-4 mr-2" />
+              Dark Mode
+            </>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <button onClick={() => signOut()} className="w-full text-left">
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </button>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+} 

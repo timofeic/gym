@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Plus } from "lucide-react"
 import AddWorkoutForm from './AddWorkoutForm'
 
 interface AddWorkoutButtonProps {
@@ -26,7 +27,10 @@ export default function AddWorkoutButton({ onWorkoutAdded }: AddWorkoutButtonPro
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full mb-6">Add Workout</Button>
+        <Button className="w-full mb-6">
+          <Plus className="h-4 w-4" />
+          Add Workout
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] w-[95vw] !max-h-[90vh] overflow-hidden">
         <DialogHeader>

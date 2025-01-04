@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { RefreshCcw, AlertCircle } from 'lucide-react'
+import { RefreshCcw, AlertCircle, Copy } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import CopyWorkoutForm from './CopyWorkoutForm'
@@ -213,7 +213,10 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
               </ul>
             </CardContent>
             <CardFooter>
-              <Button onClick={() => setSelectedWorkout(workout)}>Copy Workout</Button>
+              <Button onClick={() => setSelectedWorkout(workout)}>
+                <Copy className="h-4 w-4" />
+                Copy Workout
+              </Button>
             </CardFooter>
           </Card>
         ))

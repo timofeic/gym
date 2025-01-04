@@ -299,7 +299,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                         <Button
                           type="button"
                           size="icon"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => updateExercise(index, 'sets', exercise.sets - 1)}
                           className="h-8 w-8"
                         >
@@ -317,7 +317,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                         <Button
                           type="button"
                           size="icon"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => updateExercise(index, 'sets', exercise.sets + 1)}
                           className="h-8 w-8"
                         >
@@ -337,7 +337,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                         <Button
                           type="button"
                           size="icon"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => updateExercise(index, 'reps', exercise.reps - 1)}
                           className="h-8 w-8"
                         >
@@ -355,7 +355,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                         <Button
                           type="button"
                           size="icon"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => updateExercise(index, 'reps', exercise.reps + 1)}
                           className="h-8 w-8"
                         >
@@ -375,7 +375,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                         <Button
                           type="button"
                           size="icon"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => updateExercise(index, 'weight', exercise.weight - 1)}
                           className="h-8 w-8"
                         >
@@ -394,7 +394,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                         <Button
                           type="button"
                           size="icon"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => updateExercise(index, 'weight', exercise.weight + 1)}
                           className="h-8 w-8"
                         >
@@ -434,7 +434,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
               value=""
             >
               <SelectTrigger>
-                <SelectValue placeholder={selectedExercises.length > 0 ? "Add more exercises" : "Select an exercise"} />
+                <SelectValue placeholder={selectedExercises.length > 0 ? "Select more exercises" : "Select an exercise"} />
               </SelectTrigger>
               <SelectContent>
                 {exercises
