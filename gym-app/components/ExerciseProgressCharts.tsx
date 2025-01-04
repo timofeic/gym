@@ -178,11 +178,9 @@ export default function ExerciseProgressCharts() {
                 data={exercise.progress}
                 index="date"
                 categories={["weight", "reps"]}
-                yAxisWidth={30}
+                intervalType='preserveStartEnd'
                 onValueChange={(v) => { console.log(v) }}
                 autoMinValue={true}
-                showYAxis={true}
-                startEndOnly={true}
               />
             </CardContent>
           </Card>
