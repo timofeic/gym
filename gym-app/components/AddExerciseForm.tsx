@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { PlusCircle, MinusCircle } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
@@ -14,6 +15,12 @@ type Exercise = {
   sets: number
   reps: number
   weight: number
+  categories: string[]
+}
+
+type Category = {
+  id: string
+  name: string
 }
 
 interface AddExerciseFormProps {
@@ -26,10 +33,34 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
     name: '',
     sets: 3,
     reps: 10,
-    weight: 0
+    weight: 0,
+    categories: []
   })
+  const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    async function fetchCategories() {
+      if (!session?.supabaseAccessToken) return
+      
+      try {
+        const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+        const { data, error } = await supabase
+          .from('categories')
+          .select('*')
+          .order('name')
+        
+        if (error) throw error
+        if (data) setCategories(data)
+      } catch (err) {
+        console.error('Error fetching categories:', err)
+        setError('Failed to load categories')
+      }
+    }
+
+    fetchCategories()
+  }, [session?.supabaseAccessToken])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +89,15 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
     }
   }
 
+  const toggleCategory = (categoryName: string) => {
+    setExercise(prev => ({
+      ...prev,
+      categories: prev.categories.includes(categoryName)
+        ? prev.categories.filter(c => c !== categoryName)
+        : [...prev.categories, categoryName]
+    }))
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <p className="text-sm text-red-500">{error}</p>}
@@ -70,6 +110,24 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
           required
         />
       </div>
+
+      <div className="space-y-2">
+        <Label>Categories</Label>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <Badge
+              key={category.id}
+              variant={exercise.categories.includes(category.name) ? "default" : "outline"}
+              clickable
+              selected={exercise.categories.includes(category.name)}
+              onClick={() => toggleCategory(category.name)}
+            >
+              {category.name}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="sets">Default Sets</Label>
