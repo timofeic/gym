@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { PlusCircle, MinusCircle } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
+import { normalizeExerciseName } from '@/lib/utils'
 
 type Exercise = {
   id: string
@@ -74,6 +75,21 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
 
     try {
       const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+
+      // Check for duplicate exercise names
+      const normalizedName = normalizeExerciseName(exercise.name)
+      const { data: existingExercises, error: checkError } = await supabase
+        .from('exercises')
+        .select('id, name')
+        .eq('normalized_name', normalizedName)
+
+      if (checkError) throw checkError
+
+      if (existingExercises && existingExercises.length > 0) {
+        setError(`An exercise with a similar name already exists: "${existingExercises[0].name}"`)
+        return
+      }
+
       const { error: supabaseError } = await supabase
         .from('exercises')
         .insert([exercise])
@@ -83,7 +99,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
       onComplete()
     } catch (err) {
       console.error('Error adding exercise:', err)
-      setError('Failed to add exercise')
+      setError(err instanceof Error ? err.message : 'Failed to add exercise')
     } finally {
       setIsSubmitting(false)
     }

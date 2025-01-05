@@ -1,10 +1,34 @@
 // Tremor cx [v0.0.0]
 
-import clsx, { type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { SupabaseClient } from '@supabase/supabase-js'
 
-export function cn(...args: ClassValue[]) {
-  return twMerge(clsx(...args))
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+export function normalizeExerciseName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+export async function checkExerciseNameExists(supabase: SupabaseClient, name: string, excludeId?: string) {
+  const normalizedName = normalizeExerciseName(name)
+  
+  let query = supabase
+    .from('exercises')
+    .select('id, name')
+    .neq('name', name) // Exclude exact match to allow case changes to same exercise
+    .eq('normalized_name', normalizedName)
+
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data && data.length > 0
 }
 
 // Tremor focusInput [v0.0.1]

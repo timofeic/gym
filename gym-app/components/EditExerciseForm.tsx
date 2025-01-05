@@ -7,6 +7,7 @@ import { PlusCircle, MinusCircle } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { normalizeExerciseName } from '@/lib/utils'
 
 const VALIDATION = {
   name: { min: 1, max: 100 },
@@ -120,6 +121,23 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
     try {
       console.log('Updating exercise with data:', exercise)
       
+      // Check for duplicate exercise names if name has changed
+      if (exercise.name !== initialExercise.name) {
+        const normalizedName = normalizeExerciseName(exercise.name)
+        const { data: existingExercises, error: checkError } = await supabaseClient
+          .from('exercises')
+          .select('id, name')
+          .eq('normalized_name', normalizedName)
+          .neq('id', exercise.id)
+
+        if (checkError) throw checkError
+
+        if (existingExercises && existingExercises.length > 0) {
+          setError(`An exercise with a similar name already exists: "${existingExercises[0].name}"`)
+          return
+        }
+      }
+
       // Prepare update data
       const updateData = {
         name: exercise.name,
@@ -132,13 +150,11 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
       console.log('Sending update with data:', updateData)
 
       // First update the exercise
-      const { data, error: updateError } = await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('exercises')
         .update(updateData)
         .eq('id', exercise.id)
-        .select()
 
-      console.log('Updated exercise response:', data)
       if (updateError) throw updateError
 
       // Then fetch the updated exercise
@@ -152,9 +168,9 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
 
       console.log('Exercise updated successfully:', updatedExercise)
       onComplete()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating exercise:', err)
-      const errorMessage = err.message || err.details || 'Failed to update exercise'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update exercise'
       setError(errorMessage)
     } finally {
       setIsSubmitting(false)
