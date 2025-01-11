@@ -4,6 +4,7 @@ import { useState } from 'react'
 import WorkoutChart from '@/components/WorkoutChart'
 import AddWorkoutButton from '@/components/AddWorkoutButton'
 import RecentWorkouts from '@/components/RecentWorkouts'
+import ProgressiveOverload from '@/components/ProgressiveOverload'
 
 export default function DashboardPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -17,6 +18,7 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-bold mb-6">Workout Dashboard</h1>
       <WorkoutChart />
       <AddWorkoutButton onWorkoutAdded={handleWorkoutAdded} />
+      <ProgressiveOverload refreshTrigger={refreshTrigger} />
       <RecentWorkouts refreshTrigger={refreshTrigger} />
     </div>
   )
