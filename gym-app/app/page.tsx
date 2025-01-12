@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react'
 import WorkoutChart from '@/components/WorkoutChart'
 import AddWorkoutButton from '@/components/AddWorkoutButton'
 import RecentWorkouts from '@/components/RecentWorkouts'
-import ProgressiveOverload from '@/components/ProgressiveOverload'
+import WeeklyProgress from '@/components/WeeklyProgress'
 
 export default function DashboardPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -20,7 +20,7 @@ export default function DashboardPage() {
         <WorkoutChart />
       </Suspense>
       <AddWorkoutButton onWorkoutAdded={handleWorkoutAdded} />
-      <ProgressiveOverload refreshTrigger={refreshTrigger} />
+      <WeeklyProgress refreshTrigger={refreshTrigger} />
       <Suspense fallback={<div>Loading recent workouts...</div>}>
         <RecentWorkouts refreshTrigger={refreshTrigger} />
       </Suspense>

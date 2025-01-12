@@ -45,7 +45,7 @@ interface ProgressiveOverloadProps {
 
 const EXCLUDED_CATEGORIES = ['Upper', 'Lower', 'Push', 'Pull']
 
-export default function ProgressiveOverload({ refreshTrigger = 0 }: ProgressiveOverloadProps) {
+export default function WeeklyProgress({ refreshTrigger = 0 }: ProgressiveOverloadProps) {
   const { data: session } = useSession()
   const [weeklySets, setWeeklySets] = useState<WeeklySets>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -134,7 +134,7 @@ export default function ProgressiveOverload({ refreshTrigger = 0 }: ProgressiveO
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Progressive Overload</CardTitle>
+          <CardTitle>Weekly Progress</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground py-8">Loading...</p>
@@ -147,7 +147,7 @@ export default function ProgressiveOverload({ refreshTrigger = 0 }: ProgressiveO
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Progressive Overload</CardTitle>
+          <CardTitle>Weekly Progress</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-center text-red-500 py-8">{error}</p>
@@ -160,7 +160,7 @@ export default function ProgressiveOverload({ refreshTrigger = 0 }: ProgressiveO
     <Card className="mb-4">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <CardTitle>Progressive Overload</CardTitle>
+          <CardTitle>Weekly Progress</CardTitle>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
