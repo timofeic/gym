@@ -100,7 +100,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           )
         `)
         .order('date', { ascending: false })
-        .limit(5) as { data: WorkoutData[] | null, error: Error | null }
+        .limit(10) as { data: WorkoutData[] | null, error: Error | null }
 
       if (workoutsError) throw workoutsError
 
