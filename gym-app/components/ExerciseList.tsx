@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { RefreshCcw, AlertCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Label } from "@/components/ui/label"
 import EditExerciseForm from './EditExerciseForm'
+import { SearchInput } from './ui/search-input'
+import { CategoryFilter } from './ui/category-filter'
 
 type Exercise = {
   id: string
@@ -33,6 +34,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [searchTerm, setSearchTerm] = useState<string>('')
   const [exerciseToEdit, setExerciseToEdit] = useState<Exercise | null>(null)
   const [exerciseToDelete, setExerciseToDelete] = useState<Exercise | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -105,8 +107,9 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   }
 
   const filteredExercises = exercises.filter(exercise => 
-    selectedCategories.length === 0 || 
-    selectedCategories.some(category => exercise.categories?.includes(category))
+    (selectedCategories.length === 0 || 
+    selectedCategories.some(category => exercise.categories?.includes(category))) &&
+    exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleDeleteExercise = async () => {
@@ -189,28 +192,29 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Filter by Category</Label>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Badge
-              key={category.id}
-              variant={selectedCategories.includes(category.name) ? "default" : "outline"}
-              clickable
-              selected={selectedCategories.includes(category.name)}
-              onClick={() => toggleCategory(category.name)}
-            >
-              {category.name}
-            </Badge>
-          ))}
-        </div>
+      <div className="space-y-4">
+        <SearchInput
+          id="searchExercise"
+          value={searchTerm}
+          onChange={setSearchTerm}
+          label="Search Exercises"
+          placeholder="Search exercises..."
+        />
+        
+        <CategoryFilter
+          categories={categories}
+          selectedCategories={selectedCategories}
+          onToggleCategory={toggleCategory}
+        />
       </div>
 
       {filteredExercises.length === 0 ? (
         <p className="text-center text-muted-foreground py-8">
           {exercises.length === 0 
             ? 'No exercises found. Add your first exercise to get started!'
-            : 'No exercises match the selected categories.'}
+            : searchTerm
+              ? 'No exercises match your search.'
+              : 'No exercises match the selected categories.'}
         </p>
       ) : (
         <>
