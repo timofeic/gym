@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -27,8 +26,8 @@ import {
 import { RefreshCcw, AlertCircle, Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
-import CopyWorkoutForm from './CopyWorkoutForm'
 import EditWorkoutForm from './EditWorkoutForm'
+import ResponsiveCopyWorkoutModal from './ResponsiveCopyWorkoutModal'
 
 type Exercise = {
   id: string
@@ -378,6 +377,10 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedWorkout(workout)}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={(e) => handleOpenDeleteDialog(workout, e.currentTarget)}
                       className="text-red-600 focus:text-red-600"
@@ -398,43 +401,21 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
                 ))}
               </ul>
             </CardContent>
-            <CardFooter>
-              <Button onClick={() => setSelectedWorkout(workout)}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Workout
-              </Button>
-            </CardFooter>
           </Card>
         ))
       )}
 
-      {/* Copy Workout Dialog */}
-      <Dialog open={!!selectedWorkout} onOpenChange={(open) => {
-        if (!open) {
-          setTimeout(() => {
+      {/* Replace the Dialog with ResponsiveCopyWorkoutModal */}
+      <ResponsiveCopyWorkoutModal 
+        workout={selectedWorkout}
+        open={!!selectedWorkout}
+        onOpenChange={(open) => {
+          if (!open) {
             setSelectedWorkout(null);
-            // Ensure immediate focus restoration attempt happens after state update
-            setTimeout(() => {
-              handleRestoreFocus();
-              // Re-enable pointer events explicitly again
-              document.body.style.pointerEvents = 'auto';
-              document.documentElement.style.pointerEvents = 'auto';
-            }, 0);
-          }, 0);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Copy Workout</DialogTitle>
-          </DialogHeader>
-          {selectedWorkout && (
-            <CopyWorkoutForm 
-              exercises={selectedWorkout.exercises} 
-              onComplete={handleCopyComplete} 
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+          }
+        }}
+        onComplete={handleCopyComplete}
+      />
 
       {/* Edit Workout Dialog */}
       <Dialog open={!!workoutToEdit} onOpenChange={(open) => {
