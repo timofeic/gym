@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +41,100 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Add refs for tracking focus elements
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
+  
+  // Store the element that triggered the delete dialog
+  const handleOpenDeleteDialog = (exercise: Exercise, triggerElement: EventTarget) => {
+    // Save the current active element before opening the delete dialog
+    previousFocusRef.current = document.activeElement as HTMLElement;
+    deleteTriggerRef.current = triggerElement as HTMLElement;
+    setExerciseToDelete(exercise);
+  };
+  
+  // Handle the close of any dialog or modal
+  const handleRestoreFocus = () => {
+    // Force restore focus and pointer events - critical for all platforms
+    document.body.style.pointerEvents = 'auto';
+    document.documentElement.style.pointerEvents = 'auto';
+    
+    // Remove any lingering aria-hidden that might interfere with interaction
+    document.querySelectorAll('[aria-hidden="true"]').forEach(el => {
+      if (!el.closest('[role="dialog"]') && !el.closest('[data-state="open"]')) {
+        (el as HTMLElement).setAttribute('aria-hidden', 'false');
+      }
+    });
+    
+    // First attempt - immediate focus restoration
+    if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
+      try {
+        // Force the element to be both focusable and in the tab order
+        const focusableElement = previousFocusRef.current as HTMLElement;
+        focusableElement.tabIndex = 0;
+        focusableElement.style.outline = 'none'; // Don't show focus ring on programmatic focus
+        
+        // Focus and click simulation for maximum compatibility
+        focusableElement.focus({ preventScroll: true });
+        
+        // For desktop browsers that might need more direct activation
+        if (deleteTriggerRef.current && 'click' in deleteTriggerRef.current) {
+          // Simulate activation for better desktop compatibility
+          setTimeout(() => {
+            (deleteTriggerRef.current as HTMLElement).dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+          }, 10);
+        }
+      } catch (_error) {
+        console.error('Focus restoration failed:', _error);
+      }
+    }
+    
+    // Second attempt with delay - for browsers that need time to update DOM
+    setTimeout(() => {
+      try {
+        if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
+          (previousFocusRef.current as HTMLElement).focus({ preventScroll: true });
+        } else if (deleteTriggerRef.current && 'focus' in deleteTriggerRef.current) {
+          (deleteTriggerRef.current as HTMLElement).focus({ preventScroll: true });
+        } else {
+          // If all else fails, focus the first focusable element in the document
+          const firstFocusable = document.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+          if (firstFocusable) firstFocusable.focus();
+        }
+      } catch (_error) {
+        console.error('Delayed focus restoration failed:', _error);
+      }
+    }, 150);
+    
+    // Third attempt with longer delay for stubborn browsers
+    setTimeout(() => {
+      document.body.style.pointerEvents = 'auto';
+      document.documentElement.style.pointerEvents = 'auto';
+      try {
+        // Try to focus something reasonable if all else fails
+        if (document.activeElement === document.body || !document.activeElement) {
+          const mainArea = document.querySelector('main');
+          if (mainArea) (mainArea as HTMLElement).focus();
+        }
+      } catch {
+        console.warn('Final focus restoration attempt failed');
+      }
+    }, 300);
+  };
+  
+  // Use effect for cleanup when any dialog closes
+  useEffect(() => {
+    // Track when dialogs open
+    if (exerciseToEdit || exerciseToDelete) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    }
+    
+    // Track when dialogs close and restore focus
+    if (!exerciseToEdit && !exerciseToDelete) {
+      handleRestoreFocus();
+    }
+  }, [exerciseToEdit, exerciseToDelete]);
 
   const fetchCategories = async () => {
     try {
@@ -139,8 +233,28 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
 
       if (deleteError) throw deleteError
 
-      setExerciseToDelete(null)
-      handleManualRefresh()
+      // Use setTimeout to ensure state updates and DOM changes are processed
+      setTimeout(() => {
+        setExerciseToDelete(null);
+        handleManualRefresh();
+        
+        // Add delay to ensure state updates are processed before focus restoration
+        setTimeout(() => {
+          // Explicitly restore focus after completion
+          handleRestoreFocus();
+          
+          // Force pointer events to be enabled
+          document.body.style.pointerEvents = 'auto';
+          document.documentElement.style.pointerEvents = 'auto';
+          
+          // Remove any lingering aria-hidden attributes
+          document.querySelectorAll('[aria-hidden="true"]').forEach(el => {
+            if (!el.closest('[role="dialog"]') && !el.closest('[data-state="open"]')) {
+              (el as HTMLElement).setAttribute('aria-hidden', 'false');
+            }
+          });
+        }, 10);
+      }, 0);
     } catch (err) {
       console.error('Error deleting exercise:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete exercise')
@@ -232,7 +346,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
             </Button>
           </div>
           {filteredExercises.map(exercise => (
-            <Card key={exercise.id}>
+            <Card key={exercise.id} className="relative">
               <CardHeader>
                 <CardTitle className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -263,7 +377,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        onClick={() => setExerciseToDelete(exercise)}
+                        onClick={(e) => handleOpenDeleteDialog(exercise, e.currentTarget)}
                         className="text-red-600 focus:text-red-600"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
@@ -285,25 +399,44 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
       )}
 
       {/* Edit Exercise Dialog */}
-      <Dialog open={!!exerciseToEdit} onOpenChange={() => setExerciseToEdit(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog open={!!exerciseToEdit} onOpenChange={(open) => {
+        if (!open) {
+          setExerciseToEdit(null);
+          handleRestoreFocus();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Edit Exercise</DialogTitle>
           </DialogHeader>
           {exerciseToEdit && (
             <EditExerciseForm 
-              exercise={exerciseToEdit}
+              exercise={exerciseToEdit} 
               onComplete={() => {
                 setExerciseToEdit(null)
+                handleRestoreFocus();
                 handleManualRefresh()
-              }}
+              }} 
             />
           )}
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={!!exerciseToDelete} onOpenChange={() => setExerciseToDelete(null)}>
+      <Dialog open={!!exerciseToDelete} onOpenChange={(open) => {
+        if (!open) {
+          setTimeout(() => {
+            setExerciseToDelete(null);
+            // Ensure immediate focus restoration attempt happens after state update
+            setTimeout(() => {
+              handleRestoreFocus();
+              // Re-enable pointer events explicitly again
+              document.body.style.pointerEvents = 'auto';
+              document.documentElement.style.pointerEvents = 'auto';
+            }, 0);
+          }, 0);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Exercise</DialogTitle>
@@ -315,7 +448,10 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setExerciseToDelete(null)}
+              onClick={() => {
+                setExerciseToDelete(null);
+                handleRestoreFocus();
+              }}
               disabled={isDeleting}
             >
               Cancel

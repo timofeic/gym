@@ -20,10 +20,35 @@ const DrawerWrapper = ({ children }: { children: React.ReactNode }) => {
     document.addEventListener('focusin', handleFocus, { capture: true });
     document.addEventListener('focusout', handleFocus, { capture: true });
     
+    // Mobile-specific touch event handlers
+    const handleTouchStart = () => {
+      // Don't allow touch events to be captured by focus trap when drawer is closed
+      if (document.querySelector('[data-state="closed"]')) {
+        // Don't stop propagation, just make sure body has pointer events
+        document.body.style.pointerEvents = 'auto';
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart, { capture: true });
+    document.addEventListener('touchend', handleTouchStart, { capture: true });
+    
     // With React 19, ensure we restore pointer events on body
     const restorePointerEvents = () => {
       // Force enable pointer-events on body when drawer closes
       document.body.style.pointerEvents = 'auto';
+      
+      // Mobile Safari sometimes needs this extra boost to re-enable interactions
+      document.documentElement.style.pointerEvents = 'auto';
+      
+      // Remove any lingering aria-hidden attributes on the body that might interfere with interaction
+      const bodyNodes = document.querySelectorAll('body [aria-hidden="true"]');
+      bodyNodes.forEach(node => {
+        if (node.parentElement?.tagName !== 'DIALOG' && 
+            !node.closest('[role="dialog"]') && 
+            !node.closest('[data-state="open"]')) {
+          (node as HTMLElement).setAttribute('aria-hidden', 'false');
+        }
+      });
     };
     
     // Watch for drawer state changes
@@ -33,6 +58,10 @@ const DrawerWrapper = ({ children }: { children: React.ReactNode }) => {
             mutation.attributeName === 'data-state' && 
             (mutation.target as HTMLElement).getAttribute('data-state') === 'closed') {
           restorePointerEvents();
+          
+          // For mobile, add an extra timeout to ensure interactions are restored
+          setTimeout(restorePointerEvents, 100);
+          setTimeout(restorePointerEvents, 300);
         }
       });
     });
@@ -42,11 +71,25 @@ const DrawerWrapper = ({ children }: { children: React.ReactNode }) => {
       observer.observe(el, { attributes: true });
     });
     
+    // Force restore interactions when page gets focus (mobile-specific)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        restorePointerEvents();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', restorePointerEvents);
+    
     listenersAttached.current = true;
     
     return () => {
       document.removeEventListener('focusin', handleFocus, { capture: true });
       document.removeEventListener('focusout', handleFocus, { capture: true });
+      document.removeEventListener('touchstart', handleTouchStart, { capture: true });
+      document.removeEventListener('touchend', handleTouchStart, { capture: true });
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', restorePointerEvents);
       observer.disconnect();
     };
   }, []);
