@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +8,16 @@ import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeExerciseName } from '@/lib/utils'
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
+import { Slider } from "@/components/ui/slider"
 
 const VALIDATION = {
   name: { min: 1, max: 100 },
@@ -45,6 +55,39 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null)
+  
+  // Add ref for the previously focused element
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  
+  // Handler for manual drawer closes
+  const handleDrawerClose = useCallback(() => {
+    console.log('Drawer manually closed, restoring focus');
+    // Force restore focus and pointer events on manual close
+    document.body.style.pointerEvents = 'auto';
+    setTimeout(() => {
+      if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
+        previousFocusRef.current.focus();
+      }
+    }, 10);
+  }, []);
+
+  // Capture active element on mount
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement;
+    console.log('Saved previously focused element:', previousFocusRef.current);
+    
+    // Clean up function to restore focus when component unmounts
+    return () => {
+      console.log('Restoring focus to:', previousFocusRef.current);
+      if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
+        // Force restore focus and pointer events
+        document.body.style.pointerEvents = 'auto';
+        window.setTimeout(() => {
+          previousFocusRef.current?.focus();
+        }, 0);
+      }
+    };
+  }, []);
 
   // Initialize Supabase client once
   useEffect(() => {
@@ -168,6 +211,14 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
 
       console.log('Exercise updated successfully:', updatedExercise)
       onComplete()
+      
+      // Explicitly restore focus after completing
+      if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
+        window.setTimeout(() => {
+          document.body.style.pointerEvents = 'auto';
+          previousFocusRef.current?.focus();
+        }, 0);
+      }
     } catch (err: unknown) {
       console.error('Error updating exercise:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to update exercise'
@@ -237,104 +288,245 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
       </div>
 
       <div className="grid grid-cols-3 gap-4">
+        {/* Sets Drawer */}
         <div className="space-y-2">
           <Label htmlFor="sets">Default Sets</Label>
-          <div className="flex items-center">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setExercise({ ...exercise, sets: Math.max(VALIDATION.sets.min, exercise.sets - 1) })}
-              className="h-8 w-8"
-            >
-              <MinusCircle className="h-4 w-4" />
-            </Button>
-            <Input
-              id="sets"
-              type="number"
-              value={exercise.sets}
-              onChange={(e) => setExercise({ ...exercise, sets: parseInt(e.target.value) })}
-              min={VALIDATION.sets.min}
-              max={VALIDATION.sets.max}
-              className="w-12 text-center mx-1 px-0"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setExercise({ ...exercise, sets: Math.min(VALIDATION.sets.max, exercise.sets + 1) })}
-              className="h-8 w-8"
-            >
-              <PlusCircle className="h-4 w-4" />
-            </Button>
-          </div>
+          <Drawer>
+            <DrawerTrigger asChild>
+              <Button variant="outline" className="w-full">
+                {exercise.sets} sets
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Adjust Sets</DrawerTitle>
+              </DrawerHeader>
+              <div className="flex flex-col items-center justify-center p-4 gap-4">
+                {/* Sets value display */}
+                <div className="text-3xl font-bold">
+                  {exercise.sets} sets
+                </div>
+                
+                {/* Slider for sets adjustment */}
+                <div className="w-full px-2 py-2">
+                  <div className="flex items-center w-full gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, sets: Math.max(VALIDATION.sets.min, exercise.sets - 1) })}
+                      className="h-10 w-10 flex-shrink-0"
+                    >
+                      <MinusCircle className="h-6 w-6" />
+                    </Button>
+                    
+                    <div className="w-full">
+                      <Slider
+                        value={[exercise.sets]}
+                        min={VALIDATION.sets.min}
+                        max={VALIDATION.sets.max}
+                        step={1}
+                        onValueChange={(value) => setExercise({ ...exercise, sets: value[0] })}
+                        className="my-4"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>1</span>
+                        <span>5</span>
+                        <span>10</span>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, sets: Math.min(VALIDATION.sets.max, exercise.sets + 1) })}
+                      className="h-10 w-10 flex-shrink-0"
+                    >
+                      <PlusCircle className="h-6 w-6" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <DrawerFooter>
+                <DrawerClose asChild>
+                  <Button variant="default" onClick={handleDrawerClose}>Confirm</Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
         </div>
 
+        {/* Reps Drawer */}
         <div className="space-y-2">
           <Label htmlFor="reps">Default Reps</Label>
-          <div className="flex items-center">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setExercise({ ...exercise, reps: Math.max(VALIDATION.reps.min, exercise.reps - 1) })}
-              className="h-8 w-8"
-            >
-              <MinusCircle className="h-4 w-4" />
-            </Button>
-            <Input
-              id="reps"
-              type="number"
-              value={exercise.reps}
-              onChange={(e) => setExercise({ ...exercise, reps: parseInt(e.target.value) })}
-              min={VALIDATION.reps.min}
-              max={VALIDATION.reps.max}
-              className="w-12 text-center mx-1 px-0"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setExercise({ ...exercise, reps: Math.min(VALIDATION.reps.max, exercise.reps + 1) })}
-              className="h-8 w-8"
-            >
-              <PlusCircle className="h-4 w-4" />
-            </Button>
-          </div>
+          <Drawer>
+            <DrawerTrigger asChild>
+              <Button variant="outline" className="w-full">
+                {exercise.reps} reps
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Adjust Reps</DrawerTitle>
+              </DrawerHeader>
+              <div className="flex flex-col items-center justify-center p-4 gap-4">
+                {/* Reps value display */}
+                <div className="text-3xl font-bold">
+                  {exercise.reps} reps
+                </div>
+                
+                {/* Slider for reps adjustment */}
+                <div className="w-full px-2 py-2">
+                  <div className="flex items-center w-full gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, reps: Math.max(VALIDATION.reps.min, exercise.reps - 1) })}
+                      className="h-10 w-10 flex-shrink-0"
+                    >
+                      <MinusCircle className="h-6 w-6" />
+                    </Button>
+                    
+                    <div className="w-full">
+                      <Slider
+                        value={[exercise.reps]}
+                        min={VALIDATION.reps.min}
+                        max={30} // Using 30 instead of VALIDATION.reps.max (100) for better usability
+                        step={1}
+                        onValueChange={(value) => setExercise({ ...exercise, reps: value[0] })}
+                        className="my-4"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>1</span>
+                        <span>5</span>
+                        <span>10</span>
+                        <span>15</span>
+                        <span>20</span>
+                        <span>25</span>
+                        <span>30</span>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, reps: Math.min(VALIDATION.reps.max, exercise.reps + 1) })}
+                      className="h-10 w-10 flex-shrink-0"
+                    >
+                      <PlusCircle className="h-6 w-6" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <DrawerFooter>
+                <DrawerClose asChild>
+                  <Button variant="default" onClick={handleDrawerClose}>Confirm</Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
         </div>
 
+        {/* Weight Drawer */}
         <div className="space-y-2">
           <Label htmlFor="weight">Default Weight</Label>
-          <div className="flex items-center">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setExercise({ ...exercise, weight: Math.max(VALIDATION.weight.min, exercise.weight - 2.5) })}
-              className="h-8 w-8"
-            >
-              <MinusCircle className="h-4 w-4" />
-            </Button>
-            <Input
-              id="weight"
-              type="number"
-              value={exercise.weight}
-              onChange={(e) => setExercise({ ...exercise, weight: parseFloat(e.target.value) })}
-              min={VALIDATION.weight.min}
-              max={VALIDATION.weight.max}
-              step="0.5"
-              className="w-12 text-center mx-1 px-0"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setExercise({ ...exercise, weight: Math.min(VALIDATION.weight.max, exercise.weight + 2.5) })}
-              className="h-8 w-8"
-            >
-              <PlusCircle className="h-4 w-4" />
-            </Button>
-          </div>
+          <Drawer>
+            <DrawerTrigger asChild>
+              <Button variant="outline" className="w-full">
+                {exercise.weight} kg
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Adjust Weight</DrawerTitle>
+              </DrawerHeader>
+              <div className="flex flex-col items-center justify-center p-4 gap-4">
+                {/* Weight value display */}
+                <div className="text-3xl font-bold">
+                  {exercise.weight} kg
+                </div>
+                
+                {/* Slider for quick weight selection with standard adjustment buttons */}
+                <div className="w-full px-2 py-2">
+                  <div className="flex items-center w-full gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, weight: Math.max(VALIDATION.weight.min, exercise.weight - 2.5) })}
+                      className="h-10 w-10 flex-shrink-0"
+                    >
+                      <MinusCircle className="h-6 w-6" />
+                    </Button>
+                    
+                    <div className="w-full">
+                      <Slider
+                        value={[exercise.weight]}
+                        min={VALIDATION.weight.min}
+                        max={200}
+                        step={2.5}
+                        onValueChange={(value) => setExercise({ ...exercise, weight: value[0] })}
+                        className="my-4"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>0kg</span>
+                        <span>50kg</span>
+                        <span>100kg</span>
+                        <span>150kg</span>
+                        <span>200kg</span>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, weight: Math.min(VALIDATION.weight.max, exercise.weight + 2.5) })}
+                      className="h-10 w-10 flex-shrink-0"
+                    >
+                      <PlusCircle className="h-6 w-6" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Fine increments (0.5kg) */}
+                <div className="w-full">
+                  <Label className="mb-2 block">Fine Adjustment (0.5kg)</Label>
+                  <div className="flex items-center justify-center">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, weight: Math.max(VALIDATION.weight.min, exercise.weight - 0.5) })}
+                      className="h-8 w-8"
+                    >
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <div className="w-24 text-center mx-4 text-sm">
+                      ±0.5kg
+                    </div>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setExercise({ ...exercise, weight: Math.min(VALIDATION.weight.max, exercise.weight + 0.5) })}
+                      className="h-8 w-8"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <DrawerFooter>
+                <DrawerClose asChild>
+                  <Button variant="default" onClick={handleDrawerClose}>Confirm</Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
         </div>
       </div>
 
