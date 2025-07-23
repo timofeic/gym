@@ -10,11 +10,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Moon, Sun, User, LogOut } from "lucide-react"
+import { Moon, Sun, User, LogOut, RotateCcw } from "lucide-react"
+import { InstallButton } from "@/components/InstallButton"
 
 export function UserProfileButton() {
   const { theme, setTheme } = useTheme()
   const { data: session } = useSession()
+
+  const resetInstallPrompt = () => {
+    localStorage.removeItem('pwa-install-dismissed')
+    // Reload to show the prompt again
+    window.location.reload()
+  }
+
+  const isInstallPromptDismissed = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pwa-install-dismissed') === 'true'
+    }
+    return false
+  }
 
   return (
     <DropdownMenu>
@@ -39,6 +53,21 @@ export function UserProfileButton() {
             <DropdownMenuSeparator />
           </>
         )}
+        <DropdownMenuItem asChild>
+          <div className="w-full">
+            <InstallButton variant="ghost" size="sm" className="w-full justify-start p-2 h-auto" />
+          </div>
+        </DropdownMenuItem>
+        {isInstallPromptDismissed() && (
+          <DropdownMenuItem
+            onClick={resetInstallPrompt}
+            className="cursor-pointer"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Show Install Prompt
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="cursor-pointer"
