@@ -449,13 +449,13 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto">
             {workoutToEdit && (
-              <EditWorkoutForm 
-                workout={workoutToEdit} 
+              <EditWorkoutForm
+                workout={workoutToEdit}
                 onComplete={() => {
                   setWorkoutToEdit(null)
                   handleRestoreFocus()
                   handleManualRefresh()
-                }} 
+                }}
               />
             )}
           </div>
@@ -477,8 +477,8 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           }, 0);
         }
       }}>
-        <DrawerContent className="px-4 pb-4">
-          <DrawerHeader className="pb-2">
+        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+          <DrawerHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle>Delete Workout</DrawerTitle>
               <DrawerClose asChild>
@@ -494,7 +494,8 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
               Are you sure you want to delete this workout? This action cannot be undone.
             </DrawerDescription>
           </DrawerHeader>
-          <DrawerFooter className="flex flex-row gap-2">
+          <div className="flex-1"></div>
+          <DrawerFooter className="flex flex-row gap-2 flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => {
