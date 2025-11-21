@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { RefreshCcw, AlertCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { RefreshCcw, AlertCircle, MoreVertical, Pencil, Trash2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import EditExerciseForm from './EditExerciseForm'
 import { SearchInput } from './ui/search-input'
@@ -41,11 +41,11 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   // Add refs for tracking focus elements
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
-  
+
   // Store the element that triggered the delete dialog
   const handleOpenDeleteDialog = (exercise: Exercise, triggerElement: EventTarget) => {
     // Save the current active element before opening the delete dialog
@@ -53,20 +53,20 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
     deleteTriggerRef.current = triggerElement as HTMLElement;
     setExerciseToDelete(exercise);
   };
-  
+
   // Handle the close of any dialog or modal
   const handleRestoreFocus = () => {
     // Force restore focus and pointer events - critical for all platforms
     document.body.style.pointerEvents = 'auto';
     document.documentElement.style.pointerEvents = 'auto';
-    
+
     // Remove any lingering aria-hidden that might interfere with interaction
     document.querySelectorAll('[aria-hidden="true"]').forEach(el => {
       if (!el.closest('[role="dialog"]') && !el.closest('[data-state="open"]')) {
         (el as HTMLElement).setAttribute('aria-hidden', 'false');
       }
     });
-    
+
     // First attempt - immediate focus restoration
     if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
       try {
@@ -74,10 +74,10 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
         const focusableElement = previousFocusRef.current as HTMLElement;
         focusableElement.tabIndex = 0;
         focusableElement.style.outline = 'none'; // Don't show focus ring on programmatic focus
-        
+
         // Focus and click simulation for maximum compatibility
         focusableElement.focus({ preventScroll: true });
-        
+
         // For desktop browsers that might need more direct activation
         if (deleteTriggerRef.current && 'click' in deleteTriggerRef.current) {
           // Simulate activation for better desktop compatibility
@@ -89,7 +89,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
         console.error('Focus restoration failed:', _error);
       }
     }
-    
+
     // Second attempt with delay - for browsers that need time to update DOM
     setTimeout(() => {
       try {
@@ -106,7 +106,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
         console.error('Delayed focus restoration failed:', _error);
       }
     }, 150);
-    
+
     // Third attempt with longer delay for stubborn browsers
     setTimeout(() => {
       document.body.style.pointerEvents = 'auto';
@@ -122,14 +122,14 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
       }
     }, 300);
   };
-  
+
   // Use effect for cleanup when any dialog closes
   useEffect(() => {
     // Track when dialogs open
     if (exerciseToEdit || exerciseToDelete) {
       previousFocusRef.current = document.activeElement as HTMLElement;
     }
-    
+
     // Track when dialogs close and restore focus
     if (!exerciseToEdit && !exerciseToDelete) {
       handleRestoreFocus();
@@ -142,9 +142,9 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
         .from('categories')
         .select()
         .order('name')
-      
+
       if (error) throw error
-      
+
       if (data) {
         setCategories(data)
       }
@@ -160,9 +160,9 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
         .from('exercises')
         .select()
         .order('name')
-      
+
       if (error) throw error
-      
+
       if (data) {
         setExercises(data)
       }
@@ -193,15 +193,15 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   }
 
   const toggleCategory = (categoryName: string) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(categoryName)
         ? prev.filter(c => c !== categoryName)
         : [...prev, categoryName]
     )
   }
 
-  const filteredExercises = exercises.filter(exercise => 
-    (selectedCategories.length === 0 || 
+  const filteredExercises = exercises.filter(exercise =>
+    (selectedCategories.length === 0 ||
     selectedCategories.some(category => exercise.categories?.includes(category))) &&
     exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -237,16 +237,16 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
       setTimeout(() => {
         setExerciseToDelete(null);
         handleManualRefresh();
-        
+
         // Add delay to ensure state updates are processed before focus restoration
         setTimeout(() => {
           // Explicitly restore focus after completion
           handleRestoreFocus();
-          
+
           // Force pointer events to be enabled
           document.body.style.pointerEvents = 'auto';
           document.documentElement.style.pointerEvents = 'auto';
-          
+
           // Remove any lingering aria-hidden attributes
           document.querySelectorAll('[aria-hidden="true"]').forEach(el => {
             if (!el.closest('[role="dialog"]') && !el.closest('[data-state="open"]')) {
@@ -291,8 +291,8 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
           <AlertCircle className="h-5 w-5" />
           <p className="font-medium">{error}</p>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={handleManualRefresh}
           disabled={isRefreshing}
           className="w-full"
@@ -314,7 +314,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
           label="Search Exercises"
           placeholder="Search exercises..."
         />
-        
+
         <CategoryFilter
           categories={categories}
           selectedCategories={selectedCategories}
@@ -324,7 +324,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
 
       {filteredExercises.length === 0 ? (
         <p className="text-center text-muted-foreground py-8">
-          {exercises.length === 0 
+          {exercises.length === 0
             ? 'No exercises found. Add your first exercise to get started!'
             : searchTerm
               ? 'No exercises match your search.'
@@ -336,9 +336,9 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
             <p className="text-sm text-muted-foreground">
               {filteredExercises.length} exercise{filteredExercises.length === 1 ? '' : 's'}
             </p>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleManualRefresh}
               disabled={isRefreshing}
             >
@@ -355,9 +355,9 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
                     </div>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {exercise.categories?.map((category) => (
-                        <Badge 
-                          key={category} 
-                          variant="secondary" 
+                        <Badge
+                          key={category}
+                          variant="secondary"
                           className="text-xs"
                         >
                           {category}
@@ -376,7 +376,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={(e) => handleOpenDeleteDialog(exercise, e.currentTarget)}
                         className="text-red-600 focus:text-red-600"
                       >
@@ -398,32 +398,44 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
         </>
       )}
 
-      {/* Edit Exercise Dialog */}
-      <Dialog open={!!exerciseToEdit} onOpenChange={(open) => {
+      {/* Edit Exercise Drawer */}
+      <Drawer open={!!exerciseToEdit} onOpenChange={(open) => {
         if (!open) {
           setExerciseToEdit(null);
           handleRestoreFocus();
         }
       }}>
-        <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Edit Exercise</DialogTitle>
-          </DialogHeader>
-          {exerciseToEdit && (
-            <EditExerciseForm 
-              exercise={exerciseToEdit} 
-              onComplete={() => {
-                setExerciseToEdit(null)
-                handleRestoreFocus();
-                handleManualRefresh()
-              }} 
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+          <DrawerHeader className="pb-2 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <DrawerTitle>Edit Exercise</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" onClick={() => {
+                  setExerciseToEdit(null)
+                  handleRestoreFocus()
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto">
+            {exerciseToEdit && (
+              <EditExerciseForm
+                exercise={exerciseToEdit}
+                onComplete={() => {
+                  setExerciseToEdit(null)
+                  handleRestoreFocus();
+                  handleManualRefresh()
+                }}
+              />
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!exerciseToDelete} onOpenChange={(open) => {
+      {/* Delete Confirmation Drawer */}
+      <Drawer open={!!exerciseToDelete} onOpenChange={(open) => {
         if (!open) {
           setTimeout(() => {
             setExerciseToDelete(null);
@@ -437,15 +449,26 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
           }, 0);
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Exercise</DialogTitle>
-            <DialogDescription>
+        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+          <DrawerHeader className="pb-2 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <DrawerTitle>Delete Exercise</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" onClick={() => {
+                  setExerciseToDelete(null)
+                  handleRestoreFocus()
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+            <DrawerDescription>
               Are you sure you want to delete this exercise? This action cannot be undone.
               {error && <p className="text-red-500 mt-2">{error}</p>}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="flex-1"></div>
+          <DrawerFooter className="flex flex-row gap-2 flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => {
@@ -453,6 +476,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
                 handleRestoreFocus();
               }}
               disabled={isDeleting}
+              className="flex-1"
             >
               Cancel
             </Button>
@@ -460,12 +484,13 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
               variant="destructive"
               onClick={handleDeleteExercise}
               disabled={isDeleting}
+              className="flex-1"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   )
 }
