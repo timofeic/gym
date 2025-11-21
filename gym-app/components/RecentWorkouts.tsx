@@ -477,7 +477,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           }, 0);
         }
       }}>
-        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+        <DrawerContent className="px-4 pb-4">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle>Delete Workout</DrawerTitle>
@@ -494,8 +494,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
               Are you sure you want to delete this workout? This action cannot be undone.
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1"></div>
-          <DrawerFooter className="flex flex-row gap-2 flex-shrink-0">
+          <DrawerFooter className="flex flex-row gap-2 pt-4">
             <Button
               variant="outline"
               onClick={() => {

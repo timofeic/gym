@@ -449,7 +449,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
           }, 0);
         }
       }}>
-        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+        <DrawerContent className="px-4 pb-4">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle>Delete Exercise</DrawerTitle>
@@ -467,8 +467,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
               {error && <p className="text-red-500 mt-2">{error}</p>}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1"></div>
-          <DrawerFooter className="flex flex-row gap-2 flex-shrink-0">
+          <DrawerFooter className="flex flex-row gap-2 pt-4">
             <Button
               variant="outline"
               onClick={() => {
