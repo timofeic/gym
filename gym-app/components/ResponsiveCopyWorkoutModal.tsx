@@ -163,9 +163,9 @@ export default function ResponsiveCopyWorkoutModal({
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto">
           {workout && (
-            <CopyWorkoutForm 
-              exercises={workout.exercises} 
-              onComplete={handleComplete} 
+            <CopyWorkoutForm
+              exercises={workout.exercises}
+              onComplete={handleComplete}
             />
           )}
         </div>
