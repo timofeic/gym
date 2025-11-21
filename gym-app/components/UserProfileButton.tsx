@@ -10,8 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Moon, Sun, User, LogOut, RotateCcw } from "lucide-react"
+import { Moon, Sun, User, LogOut, RotateCcw, Settings } from "lucide-react"
 import { InstallButton } from "@/components/InstallButton"
+import Link from "next/link"
 
 export function UserProfileButton() {
   const { theme, setTheme } = useTheme()
@@ -33,9 +34,9 @@ export function UserProfileButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           className="rounded-full bg-white dark:bg-gray-800 border-2 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           <User className="h-5 w-5" />
@@ -68,6 +69,12 @@ export function UserProfileButton() {
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings" className="cursor-pointer">
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="cursor-pointer"
@@ -94,4 +101,4 @@ export function UserProfileButton() {
       </DropdownMenuContent>
     </DropdownMenu>
   )
-} 
+}
