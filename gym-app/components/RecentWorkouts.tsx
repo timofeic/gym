@@ -10,20 +10,21 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerClose,
+} from "@/components/ui/drawer"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { RefreshCcw, AlertCircle, Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { RefreshCcw, AlertCircle, Copy, MoreVertical, Pencil, Trash2, X } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import EditWorkoutForm from './EditWorkoutForm'
@@ -74,11 +75,11 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   // Add refs for tracking focus elements
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
-  
+
   // Store the element that triggered the delete dialog
   const handleOpenDeleteDialog = (workout: Workout, triggerElement: EventTarget) => {
     // Save the current active element before opening the delete dialog
@@ -86,20 +87,20 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
     deleteTriggerRef.current = triggerElement as HTMLElement;
     setWorkoutToDelete(workout);
   };
-  
+
   // Update the handleRestoreFocus function to be more robust across platforms
   const handleRestoreFocus = () => {
     // Force restore focus and pointer events - critical for all platforms
     document.body.style.pointerEvents = 'auto';
     document.documentElement.style.pointerEvents = 'auto';
-    
+
     // Remove any lingering aria-hidden that might interfere with interaction
     document.querySelectorAll('[aria-hidden="true"]').forEach(el => {
       if (!el.closest('[role="dialog"]') && !el.closest('[data-state="open"]')) {
         (el as HTMLElement).setAttribute('aria-hidden', 'false');
       }
     });
-    
+
     // First attempt - immediate focus restoration
     if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
       try {
@@ -107,10 +108,10 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
         const focusableElement = previousFocusRef.current as HTMLElement;
         focusableElement.tabIndex = 0;
         focusableElement.style.outline = 'none'; // Don't show focus ring on programmatic focus
-        
+
         // Focus and click simulation for maximum compatibility
         focusableElement.focus({ preventScroll: true });
-        
+
         // For desktop browsers that might need more direct activation
         if (deleteTriggerRef.current && 'click' in deleteTriggerRef.current) {
           // Simulate activation for better desktop compatibility
@@ -122,7 +123,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
         console.error('Focus restoration failed:', _error);
       }
     }
-    
+
     // Second attempt with delay - for browsers that need time to update DOM
     setTimeout(() => {
       try {
@@ -139,7 +140,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
         console.error('Delayed focus restoration failed:', _error);
       }
     }, 150);
-    
+
     // Third attempt with longer delay for stubborn browsers
     setTimeout(() => {
       document.body.style.pointerEvents = 'auto';
@@ -155,14 +156,14 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
       }
     }, 300);
   };
-  
+
   // Use effect for cleanup when any dialog closes
   useEffect(() => {
     // Track when dialogs open
     if (selectedWorkout || workoutToEdit || workoutToDelete) {
       previousFocusRef.current = document.activeElement as HTMLElement;
     }
-    
+
     // Track when dialogs close and restore focus
     if (!selectedWorkout && !workoutToEdit && !workoutToDelete) {
       handleRestoreFocus();
@@ -174,7 +175,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
 
     try {
       const supabase = getAuthenticatedClient(session.supabaseAccessToken)
-      
+
       // Fetch workouts with their exercises
       const { data: workoutsData, error: workoutsError } = await supabase
         .from('workouts')
@@ -272,16 +273,16 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
       setTimeout(() => {
         setWorkoutToDelete(null);
         handleManualRefresh();
-        
+
         // Add delay to ensure state updates are processed before focus restoration
         setTimeout(() => {
           // Explicitly restore focus after completion
           handleRestoreFocus();
-          
+
           // Force pointer events to be enabled
           document.body.style.pointerEvents = 'auto';
           document.documentElement.style.pointerEvents = 'auto';
-          
+
           // Remove any lingering aria-hidden attributes
           document.querySelectorAll('[aria-hidden="true"]').forEach(el => {
             if (!el.closest('[role="dialog"]') && !el.closest('[data-state="open"]')) {
@@ -326,8 +327,8 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           <AlertCircle className="h-5 w-5" />
           <p className="font-medium">{error}</p>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={handleManualRefresh}
           disabled={isRefreshing}
           className="w-full"
@@ -343,9 +344,9 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Recent Workouts</h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleManualRefresh}
           disabled={isRefreshing}
         >
@@ -381,7 +382,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
                       <Copy className="h-4 w-4 mr-2" />
                       Copy
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={(e) => handleOpenDeleteDialog(workout, e.currentTarget)}
                       className="text-red-600 focus:text-red-600"
                     >
@@ -406,7 +407,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
       )}
 
       {/* Replace the Dialog with ResponsiveCopyWorkoutModal */}
-      <ResponsiveCopyWorkoutModal 
+      <ResponsiveCopyWorkoutModal
         workout={selectedWorkout}
         open={!!selectedWorkout}
         onOpenChange={(open) => {
@@ -417,8 +418,8 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
         onComplete={handleCopyComplete}
       />
 
-      {/* Edit Workout Dialog */}
-      <Dialog open={!!workoutToEdit} onOpenChange={(open) => {
+      {/* Edit Workout Drawer */}
+      <Drawer open={!!workoutToEdit} onOpenChange={(open) => {
         if (!open) {
           setTimeout(() => {
             setWorkoutToEdit(null);
@@ -432,25 +433,37 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           }, 0);
         }
       }}>
-        <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[80vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Edit Workout</DialogTitle>
-          </DialogHeader>
-          {workoutToEdit && (
-            <EditWorkoutForm 
-              workout={workoutToEdit} 
-              onComplete={() => {
-                setWorkoutToEdit(null)
-                handleRestoreFocus()
-                handleManualRefresh()
-              }} 
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+          <DrawerHeader className="pb-2 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <DrawerTitle>Edit Workout</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" onClick={() => {
+                  setWorkoutToEdit(null)
+                  handleRestoreFocus()
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto">
+            {workoutToEdit && (
+              <EditWorkoutForm 
+                workout={workoutToEdit} 
+                onComplete={() => {
+                  setWorkoutToEdit(null)
+                  handleRestoreFocus()
+                  handleManualRefresh()
+                }} 
+              />
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!workoutToDelete} onOpenChange={(open) => {
+      {/* Delete Confirmation Drawer */}
+      <Drawer open={!!workoutToDelete} onOpenChange={(open) => {
         if (!open) {
           setTimeout(() => {
             setWorkoutToDelete(null);
@@ -464,14 +477,24 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           }, 0);
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Workout</DialogTitle>
-            <DialogDescription>
+        <DrawerContent className="px-4 pb-4">
+          <DrawerHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <DrawerTitle>Delete Workout</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" onClick={() => {
+                  setWorkoutToDelete(null)
+                  handleRestoreFocus()
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+            <DrawerDescription>
               Are you sure you want to delete this workout? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter className="flex flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -479,6 +502,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
                 handleRestoreFocus()
               }}
               disabled={isDeleting}
+              className="flex-1"
             >
               Cancel
             </Button>
@@ -486,12 +510,13 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
               variant="destructive"
               onClick={handleDeleteWorkout}
               disabled={isDeleting}
+              className="flex-1"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   )
 }
