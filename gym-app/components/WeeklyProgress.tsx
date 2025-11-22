@@ -12,12 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-
-type Exercise = {
-  id: string
-  name: string
-  categories: string[]
-}
+import { Exercise } from '@/types/exercise'
 
 type WorkoutExercise = {
   exercise_id: string
@@ -61,16 +56,16 @@ export default function WeeklyProgress({ refreshTrigger = 0 }: ProgressiveOverlo
 
   const fetchWorkouts = async () => {
     if (!session?.supabaseAccessToken) return
-    
+
     try {
       setIsLoading(true)
       const supabase = getAuthenticatedClient(session.supabaseAccessToken)
-      
+
       // Get workouts from the current week
       const weekStart = getCurrentWeekStart()
       const nextWeek = new Date(weekStart)
       nextWeek.setDate(nextWeek.getDate() + 7)
-      
+
       const { data, error: workoutsError } = await supabase
         .from('workouts')
         .select(`
@@ -95,13 +90,13 @@ export default function WeeklyProgress({ refreshTrigger = 0 }: ProgressiveOverlo
       // Process workouts into weekly sets by category
       const weeklyData: WeeklySets = {}
       weeklyData[weekStart] = {}
-      
+
       ;(data as unknown as Workout[])?.forEach(workout => {
         workout.workout_exercises.forEach(exercise => {
           exercise.exercises.categories?.forEach(category => {
             // Skip excluded categories
             if (EXCLUDED_CATEGORIES.includes(category)) return
-            
+
             if (!weeklyData[weekStart][category]) {
               weeklyData[weekStart][category] = 0
             }
@@ -202,4 +197,4 @@ export default function WeeklyProgress({ refreshTrigger = 0 }: ProgressiveOverlo
       </CardContent>
     </Card>
   )
-} 
+}

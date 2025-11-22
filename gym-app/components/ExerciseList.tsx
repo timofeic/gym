@@ -6,31 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { RefreshCcw, AlertCircle, MoreVertical, Pencil, Trash2, X } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { RefreshCcw, AlertCircle, MoreVertical, Pencil, Trash2, X, RotateCcw } from 'lucide-react'
+import { getAuthenticatedClient } from '@/lib/supabase'
+import { useSession } from 'next-auth/react'
 import EditExerciseForm from './EditExerciseForm'
 import { SearchInput } from './ui/search-input'
 import { CategoryFilter } from './ui/category-filter'
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-  categories: string[]
-}
-
-type Category = {
-  id: string
-  name: string
-}
+import { Exercise, Category } from '@/types/exercise'
 
 interface ExerciseListProps {
   refreshTrigger?: number
 }
 
 export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) {
+  const { data: session } = useSession()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
@@ -137,7 +126,10 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   }, [exerciseToEdit, exerciseToDelete]);
 
   const fetchCategories = async () => {
+    if (!session?.supabaseAccessToken) return
+
     try {
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
       const { data, error } = await supabase
         .from('categories')
         .select()
@@ -155,16 +147,38 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
   }
 
   const fetchExercises = async () => {
+    if (!session?.supabaseAccessToken) return
+
     try {
-      const { data, error } = await supabase
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+
+      // Fetch all exercises (default and user's own)
+      const { data: allExercises, error } = await supabase
         .from('exercises')
-        .select()
+        .select('*')
         .order('name')
 
       if (error) throw error
 
-      if (data) {
-        setExercises(data)
+      if (allExercises) {
+        // Get the list of parent_exercise_ids for exercises the user has customized
+        const customizedDefaultIds = allExercises
+          .filter(ex => ex.user_id === session.user?.id && ex.parent_exercise_id)
+          .map(ex => ex.parent_exercise_id)
+
+        // Filter out default exercises that have been customized
+        const filteredExercises = allExercises.filter(exercise => {
+          // Include user's own exercises
+          if (exercise.user_id === session.user?.id) return true
+
+          // Include default exercises that haven't been customized
+          if (exercise.is_default && !customizedDefaultIds.includes(exercise.id)) return true
+
+          // Exclude everything else
+          return false
+        })
+
+        setExercises(filteredExercises)
       }
     } catch (err) {
       console.error('Error fetching exercises:', err)
@@ -174,8 +188,10 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
 
   // Initial load
   useEffect(() => {
-    Promise.all([fetchExercises(), fetchCategories()]).finally(() => setIsLoading(false))
-  }, [])
+    if (session?.supabaseAccessToken) {
+      Promise.all([fetchExercises(), fetchCategories()]).finally(() => setIsLoading(false))
+    }
+  }, [session?.supabaseAccessToken])
 
   // Handle refresh trigger
   useEffect(() => {
@@ -206,13 +222,38 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
     exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const handleResetToDefault = async (exercise: Exercise) => {
+    if (!exercise.parent_exercise_id || !session?.supabaseAccessToken) return
+
+    setError(null)
+
+    try {
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+
+      // Delete the custom exercise to reveal the default
+      const { error: deleteError } = await supabase
+        .from('exercises')
+        .delete()
+        .eq('id', exercise.id)
+
+      if (deleteError) throw deleteError
+
+      handleManualRefresh()
+    } catch (err) {
+      console.error('Error resetting to default:', err)
+      setError(err instanceof Error ? err.message : 'Failed to reset to default')
+    }
+  }
+
   const handleDeleteExercise = async () => {
-    if (!exerciseToDelete) return
+    if (!exerciseToDelete || !session?.supabaseAccessToken) return
 
     setIsDeleting(true)
     setError(null)
 
     try {
+      const supabase = getAuthenticatedClient(session.supabaseAccessToken)
+
       // First check if the exercise is used in any workouts
       const { data: workoutExercises, error: checkError } = await supabase
         .from('workout_exercises')
@@ -345,48 +386,71 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
               <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          {filteredExercises.map(exercise => (
-            <Card key={exercise.id} className="relative">
-              <CardHeader>
-                <CardTitle className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="group relative cursor-default pb-1">
-                      {exercise.name}
+          {filteredExercises.map(exercise => {
+            const isDefault = exercise.is_default && !exercise.user_id
+            const isCustomized = !!exercise.parent_exercise_id
+            const isUserOwned = exercise.user_id === session?.user?.id
+
+            return (
+              <Card key={exercise.id} className="relative">
+                <CardHeader>
+                  <CardTitle className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="group relative cursor-default pb-1 flex items-center gap-2">
+                        <span>{exercise.name}</span>
+                        {isDefault && (
+                          <Badge variant="outline" className="text-xs">
+                            Default
+                          </Badge>
+                        )}
+                        {isCustomized && (
+                          <Badge variant="default" className="text-xs">
+                            Custom
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {exercise.categories?.map((category) => (
+                          <Badge
+                            key={category}
+                            variant="secondary"
+                            className="text-xs"
+                          >
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {exercise.categories?.map((category) => (
-                        <Badge
-                          key={category}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {category}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="flex-shrink-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setExerciseToEdit(exercise)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => handleOpenDeleteDialog(exercise, e.currentTarget)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardTitle>
-              </CardHeader>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setExerciseToEdit(exercise)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          {isDefault ? 'Customize' : 'Edit'}
+                        </DropdownMenuItem>
+                        {isCustomized && (
+                          <DropdownMenuItem onClick={() => handleResetToDefault(exercise)}>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reset to Default
+                          </DropdownMenuItem>
+                        )}
+                        {isUserOwned && !isDefault && (
+                          <DropdownMenuItem
+                            onClick={(e) => handleOpenDeleteDialog(exercise, e.currentTarget)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardTitle>
+                </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-2">Default values (can be adjusted when adding to workout):</p>
                 <p>Sets: {exercise.sets}</p>
@@ -394,7 +458,8 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
                 <p>Weight: {exercise.weight} kg</p>
               </CardContent>
             </Card>
-          ))}
+          )
+        })}
         </>
       )}
 
@@ -449,7 +514,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
           }, 0);
         }
       }}>
-        <DrawerContent className="px-4 pb-4">
+        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle>Delete Exercise</DrawerTitle>
@@ -467,6 +532,7 @@ export default function ExerciseList({ refreshTrigger = 0 }: ExerciseListProps) 
               {error && <p className="text-red-500 mt-2">{error}</p>}
             </DrawerDescription>
           </DrawerHeader>
+          <div className="flex-1" />
           <DrawerFooter className="flex flex-row gap-2 pt-4">
             <Button
               variant="outline"

@@ -18,6 +18,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import { Slider } from "@/components/ui/slider"
+import { Exercise, Category } from '@/types/exercise'
 
 const VALIDATION = {
   name: { min: 1, max: 100 },
@@ -25,20 +26,6 @@ const VALIDATION = {
   reps: { min: 1, max: 100 },
   weight: { min: 0, max: 500 }
 } as const
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-  categories: string[]
-}
-
-type Category = {
-  id: string
-  name: string
-}
 
 interface EditExerciseFormProps {
   exercise: Exercise
@@ -55,10 +42,10 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null)
-  
+
   // Add ref for the previously focused element
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  
+
   // Handler for manual drawer closes
   const handleDrawerClose = useCallback(() => {
     console.log('Drawer manually closed, restoring focus');
@@ -75,7 +62,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement;
     console.log('Saved previously focused element:', previousFocusRef.current);
-    
+
     // Clean up function to restore focus when component unmounts
     return () => {
       console.log('Restoring focus to:', previousFocusRef.current);
@@ -99,13 +86,13 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
 
   const fetchCategories = useCallback(async () => {
     if (!supabaseClient) return
-    
+
     try {
       const { data, error } = await supabaseClient
         .from('categories')
         .select('*')
         .order('name')
-      
+
       if (error) throw error
       if (data) {
         console.log('Fetched categories:', data)
@@ -163,15 +150,20 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
 
     try {
       console.log('Updating exercise with data:', exercise)
-      
-      // Check for duplicate exercise names if name has changed
-      if (exercise.name !== initialExercise.name) {
+
+      // Determine if this is a default exercise being customized
+      const isDefaultExercise = initialExercise.is_default && !initialExercise.user_id
+
+      if (isDefaultExercise) {
+        // Copy-on-write: Create a new custom exercise
+        console.log('Creating custom version of default exercise')
+
+        // Check for duplicate exercise names
         const normalizedName = normalizeExerciseName(exercise.name)
         const { data: existingExercises, error: checkError } = await supabaseClient
           .from('exercises')
           .select('id, name')
           .eq('normalized_name', normalizedName)
-          .neq('id', exercise.id)
 
         if (checkError) throw checkError
 
@@ -179,39 +171,69 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
           setError(`An exercise with a similar name already exists: "${existingExercises[0].name}"`)
           return
         }
+
+        // Create new custom exercise with parent reference
+        const { error: insertError } = await supabaseClient
+          .from('exercises')
+          .insert([{
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            weight: exercise.weight,
+            categories: Array.isArray(exercise.categories) ? exercise.categories : [],
+            user_id: session?.user?.id,
+            parent_exercise_id: initialExercise.id,
+            is_default: false
+          }])
+
+        if (insertError) throw insertError
+
+        console.log('Custom exercise created successfully')
+      } else {
+        // Regular update for user's own exercises
+        console.log('Updating user exercise')
+
+        // Check for duplicate exercise names if name has changed
+        if (exercise.name !== initialExercise.name) {
+          const normalizedName = normalizeExerciseName(exercise.name)
+          const { data: existingExercises, error: checkError } = await supabaseClient
+            .from('exercises')
+            .select('id, name')
+            .eq('normalized_name', normalizedName)
+            .neq('id', exercise.id)
+
+          if (checkError) throw checkError
+
+          if (existingExercises && existingExercises.length > 0) {
+            setError(`An exercise with a similar name already exists: "${existingExercises[0].name}"`)
+            return
+          }
+        }
+
+        // Prepare update data
+        const updateData = {
+          name: exercise.name,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          weight: exercise.weight,
+          categories: Array.isArray(exercise.categories) ? exercise.categories : []
+        }
+
+        console.log('Sending update with data:', updateData)
+
+        // Update the exercise
+        const { error: updateError } = await supabaseClient
+          .from('exercises')
+          .update(updateData)
+          .eq('id', exercise.id)
+
+        if (updateError) throw updateError
+
+        console.log('Exercise updated successfully')
       }
 
-      // Prepare update data
-      const updateData = {
-        name: exercise.name,
-        sets: exercise.sets,
-        reps: exercise.reps,
-        weight: exercise.weight,
-        categories: Array.isArray(exercise.categories) ? exercise.categories : []
-      }
-
-      console.log('Sending update with data:', updateData)
-
-      // First update the exercise
-      const { error: updateError } = await supabaseClient
-        .from('exercises')
-        .update(updateData)
-        .eq('id', exercise.id)
-
-      if (updateError) throw updateError
-
-      // Then fetch the updated exercise
-      const { data: updatedExercise, error: fetchError } = await supabaseClient
-        .from('exercises')
-        .select('*')
-        .eq('id', exercise.id)
-        .single()
-
-      if (fetchError) throw fetchError
-
-      console.log('Exercise updated successfully:', updatedExercise)
       onComplete()
-      
+
       // Explicitly restore focus after completing
       if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
         window.setTimeout(() => {
@@ -231,14 +253,14 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
   const toggleCategory = (categoryName: string) => {
     console.log('Toggling category:', categoryName)
     console.log('Current categories:', exercise.categories)
-    
+
     setExercise(prev => {
       // Ensure we're working with an array
       const currentCategories = Array.isArray(prev.categories) ? prev.categories : []
       const newCategories = currentCategories.includes(categoryName)
         ? currentCategories.filter(c => c !== categoryName)
         : [...currentCategories, categoryName]
-      
+
       console.log('New categories:', newCategories)
       return {
         ...prev,
@@ -252,9 +274,17 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
     console.log('Exercise state updated:', exercise)
   }, [exercise])
 
+  const isDefaultExercise = initialExercise.is_default && !initialExercise.user_id
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <p className="text-sm text-red-500">{error}</p>}
+      {isDefaultExercise && (
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3 text-sm text-blue-900 dark:text-blue-100">
+          <p className="font-medium">Customizing Default Exercise</p>
+          <p className="text-xs mt-1">This will create a personal version of this exercise with your changes. The default exercise will be replaced with your custom version.</p>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="name">Exercise Name</Label>
         <Input
@@ -306,7 +336,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                 <div className="text-3xl font-bold">
                   {exercise.sets} sets
                 </div>
-                
+
                 {/* Slider for sets adjustment */}
                 <div className="w-full px-2 py-2">
                   <div className="flex items-center w-full gap-2">
@@ -319,7 +349,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                     >
                       <MinusCircle className="h-6 w-6" />
                     </Button>
-                    
+
                     <div className="w-full">
                       <Slider
                         value={[exercise.sets]}
@@ -335,7 +365,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                         <span>10</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       type="button"
                       size="icon"
@@ -375,7 +405,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                 <div className="text-3xl font-bold">
                   {exercise.reps} reps
                 </div>
-                
+
                 {/* Slider for reps adjustment */}
                 <div className="w-full px-2 py-2">
                   <div className="flex items-center w-full gap-2">
@@ -388,7 +418,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                     >
                       <MinusCircle className="h-6 w-6" />
                     </Button>
-                    
+
                     <div className="w-full">
                       <Slider
                         value={[exercise.reps]}
@@ -408,7 +438,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                         <span>30</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       type="button"
                       size="icon"
@@ -448,7 +478,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                 <div className="text-3xl font-bold">
                   {exercise.weight} kg
                 </div>
-                
+
                 {/* Slider for quick weight selection with standard adjustment buttons */}
                 <div className="w-full px-2 py-2">
                   <div className="flex items-center w-full gap-2">
@@ -461,7 +491,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                     >
                       <MinusCircle className="h-6 w-6" />
                     </Button>
-                    
+
                     <div className="w-full">
                       <Slider
                         value={[exercise.weight]}
@@ -479,7 +509,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                         <span>200kg</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       type="button"
                       size="icon"
@@ -491,7 +521,7 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
                     </Button>
                   </div>
                 </div>
-                
+
                 {/* Fine increments (0.5kg) */}
                 <div className="w-full">
                   <Label className="mb-2 block">Fine Adjustment (0.5kg)</Label>
@@ -535,4 +565,4 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
       </Button>
     </form>
   )
-} 
+}

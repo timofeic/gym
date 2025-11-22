@@ -15,20 +15,13 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import { Slider } from "@/components/ui/slider"
+import { Exercise } from '@/types/exercise'
 
 const VALIDATION = {
   sets: { min: 1, max: 10 },
   reps: { min: 1, max: 100 },
   weight: { min: 0, max: 500 }
 } as const
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-}
 
 type Workout = {
   id: string
@@ -41,6 +34,24 @@ interface EditWorkoutFormProps {
   onComplete: () => void
 }
 
+// Helper function to format date for input without timezone conversion
+const formatDateForInput = (dateString: string): string => {
+  const date = new Date(dateString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Helper function to get today's date in local timezone
+const getTodayDateString = (): string => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function EditWorkoutForm({ workout: initialWorkout, onComplete }: EditWorkoutFormProps) {
   const { data: session } = useSession()
   const [workout, setWorkout] = useState<Workout>(initialWorkout)
@@ -50,10 +61,10 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const exerciseListRef = useRef<HTMLDivElement>(null)
-  
+
   // Add ref for the previously focused element
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  
+
   // Handler for manual drawer closes
   const handleDrawerClose = useCallback(() => {
     console.log('Drawer manually closed, restoring focus');
@@ -70,7 +81,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement;
     console.log('Saved previously focused element:', previousFocusRef.current);
-    
+
     // Clean up function to restore focus when component unmounts
     return () => {
       console.log('Restoring focus to:', previousFocusRef.current);
@@ -91,13 +102,33 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
 
       try {
         const supabase = getAuthenticatedClient(session.supabaseAccessToken)
-        const { data, error } = await supabase
+        const { data: allExercises, error } = await supabase
           .from('exercises')
-          .select()
+          .select('*')
           .order('name')
 
         if (error) throw error
-        if (data) setAvailableExercises(data)
+
+        if (allExercises) {
+          // Get the list of parent_exercise_ids for exercises the user has customized
+          const customizedDefaultIds = allExercises
+            .filter(ex => ex.user_id === session.user?.id && ex.parent_exercise_id)
+            .map(ex => ex.parent_exercise_id)
+
+          // Filter out default exercises that have been customized
+          const filteredExercises = allExercises.filter(exercise => {
+            // Include user's own exercises
+            if (exercise.user_id === session.user?.id) return true
+
+            // Include default exercises that haven't been customized
+            if (exercise.is_default && !customizedDefaultIds.includes(exercise.id)) return true
+
+            // Exclude everything else
+            return false
+          })
+
+          setAvailableExercises(filteredExercises)
+        }
       } catch (err) {
         console.error('Error fetching exercises:', err)
         setError('Failed to load exercises')
@@ -117,7 +148,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
       ...prev,
       exercises: [...prev.exercises, { ...exercise }]
     }))
-    
+
     // Scroll to bottom after state update
     setTimeout(() => {
       if (exerciseListRef.current) {
@@ -204,7 +235,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
       if (exercisesError) throw exercisesError
 
       onComplete()
-      
+
       // Explicitly restore focus after completing
       if (previousFocusRef.current && 'focus' in previousFocusRef.current) {
         window.setTimeout(() => {
@@ -220,8 +251,8 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
     }
   }
 
-  const filteredExercises = availableExercises.filter(exercise => 
-    !workout.exercises.some(se => se.id === exercise.id) && 
+  const filteredExercises = availableExercises.filter(exercise =>
+    !workout.exercises.some(se => se.id === exercise.id) &&
     exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -230,7 +261,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
   }
 
   return (
-    <div className="flex flex-col h-[60vh]">
+    <div className="flex flex-col h-full">
       <form onSubmit={handleSubmit} className="flex flex-col h-full">
         {error && <p className="text-sm text-red-500">{error}</p>}
 
@@ -240,9 +271,9 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
             <Input
               id="date"
               type="date"
-              value={new Date(workout.date).toISOString().split('T')[0]}
+              value={formatDateForInput(workout.date)}
               onChange={(e) => setWorkout(prev => ({ ...prev, date: e.target.value }))}
-              max={new Date().toISOString().split('T')[0]}
+              max={getTodayDateString()}
               required
             />
           </div>
@@ -283,7 +314,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                           <div className="text-3xl font-bold">
                             {exercise.sets} sets
                           </div>
-                          
+
                           {/* Slider for sets adjustment */}
                           <div className="w-full px-2 py-2">
                             <div className="flex items-center w-full gap-2">
@@ -296,7 +327,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                               >
                                 <MinusCircle className="h-6 w-6" />
                               </Button>
-                              
+
                               <div className="w-full">
                                 <Slider
                                   value={[exercise.sets]}
@@ -312,7 +343,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                                   <span>10</span>
                                 </div>
                               </div>
-                              
+
                               <Button
                                 type="button"
                                 size="icon"
@@ -352,7 +383,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                           <div className="text-3xl font-bold">
                             {exercise.reps} reps
                           </div>
-                          
+
                           {/* Slider for reps adjustment */}
                           <div className="w-full px-2 py-2">
                             <div className="flex items-center w-full gap-2">
@@ -365,7 +396,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                               >
                                 <MinusCircle className="h-6 w-6" />
                               </Button>
-                              
+
                               <div className="w-full">
                                 <Slider
                                   value={[exercise.reps]}
@@ -385,7 +416,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                                   <span>30</span>
                                 </div>
                               </div>
-                              
+
                               <Button
                                 type="button"
                                 size="icon"
@@ -425,7 +456,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                           <div className="text-3xl font-bold">
                             {exercise.weight} kg
                           </div>
-                          
+
                           {/* Slider for quick weight selection with standard adjustment buttons */}
                           <div className="w-full px-2 py-2">
                             <div className="flex items-center w-full gap-2">
@@ -438,7 +469,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                               >
                                 <MinusCircle className="h-6 w-6" />
                               </Button>
-                              
+
                               <div className="w-full">
                                 <Slider
                                   value={[exercise.weight]}
@@ -456,7 +487,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                                   <span>200kg</span>
                                 </div>
                               </div>
-                              
+
                               <Button
                                 type="button"
                                 size="icon"
@@ -468,7 +499,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                               </Button>
                             </div>
                           </div>
-                          
+
                           {/* Fine increments (0.5kg) */}
                           <div className="w-full">
                             <Label className="mb-2 block">Fine Adjustment (0.5kg)</Label>
@@ -537,7 +568,7 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  
+
                   {/* Exercise List */}
                   {filteredExercises.length > 0 ? (
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -571,9 +602,9 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
             </Drawer>
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Updating Workout...' : 'Update Workout'}
@@ -582,4 +613,4 @@ export default function EditWorkoutForm({ workout: initialWorkout, onComplete }:
       </form>
     </div>
   )
-} 
+}

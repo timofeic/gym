@@ -43,10 +43,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Gym App" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-tap-highlight" content="no" />
-        
+
         {/* Prevent zoom on inputs */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-        
+
         {/* Service Worker Registration */}
         <script
           dangerouslySetInnerHTML={{
@@ -72,7 +72,7 @@ export default function RootLayout({
           <header className="fixed top-0 right-0 p-4 z-50 safe-area-inset-top">
             <UserProfileButton />
           </header>
-          <main className="pb-16 pt-16 min-h-screen-safe">
+          <main className="pb-16 min-h-screen-safe">
             {children}
           </main>
           <BottomNav />

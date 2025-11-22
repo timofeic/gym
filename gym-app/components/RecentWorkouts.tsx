@@ -29,14 +29,7 @@ import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import EditWorkoutForm from './EditWorkoutForm'
 import ResponsiveCopyWorkoutModal from './ResponsiveCopyWorkoutModal'
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-}
+import { Exercise } from '@/types/exercise'
 
 type Workout = {
   id: string
@@ -477,7 +470,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
           }, 0);
         }
       }}>
-        <DrawerContent className="px-4 pb-4">
+        <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle>Delete Workout</DrawerTitle>
@@ -494,6 +487,7 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
               Are you sure you want to delete this workout? This action cannot be undone.
             </DrawerDescription>
           </DrawerHeader>
+          <div className="flex-1" />
           <DrawerFooter className="flex flex-row gap-2 pt-4">
             <Button
               variant="outline"

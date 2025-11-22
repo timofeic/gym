@@ -17,20 +17,13 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import { Slider } from "@/components/ui/slider"
+import { Exercise } from '@/types/exercise'
 
 const VALIDATION = {
   sets: { min: 1, max: 10 },
   reps: { min: 1, max: 100 },
   weight: { min: 0, max: 500 }
 } as const
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-}
 
 type WorkoutExercise = Exercise & {
   isCustom?: boolean
@@ -63,13 +56,33 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
 
       try {
         const supabase = getAuthenticatedClient(session.supabaseAccessToken)
-        const { data, error } = await supabase
+        const { data: allExercises, error } = await supabase
           .from('exercises')
-          .select()
+          .select('*')
           .order('name')
 
         if (error) throw error
-        if (data) setExercises(data)
+
+        if (allExercises) {
+          // Get the list of parent_exercise_ids for exercises the user has customized
+          const customizedDefaultIds = allExercises
+            .filter(ex => ex.user_id === session.user?.id && ex.parent_exercise_id)
+            .map(ex => ex.parent_exercise_id)
+
+          // Filter out default exercises that have been customized
+          const filteredExercises = allExercises.filter(exercise => {
+            // Include user's own exercises
+            if (exercise.user_id === session.user?.id) return true
+
+            // Include default exercises that haven't been customized
+            if (exercise.is_default && !customizedDefaultIds.includes(exercise.id)) return true
+
+            // Exclude everything else
+            return false
+          })
+
+          setExercises(filteredExercises)
+        }
       } catch (err) {
         console.error('Error fetching exercises:', err)
         setError('Failed to load exercises')
@@ -100,7 +113,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
       hasErrors = true
     }
 
-    setSelectedExercises(prev => prev.map(e => 
+    setSelectedExercises(prev => prev.map(e =>
       e.id === exercise.id ? { ...e, errors } : e
     ))
 
@@ -112,7 +125,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
     if (!exercise) return
 
     setSelectedExercises(prev => [...prev, { ...exercise, errors: {} }])
-    
+
     // Scroll to bottom after state update
     setTimeout(() => {
       if (exerciseListRef.current) {
@@ -239,8 +252,8 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
     }
   }
 
-  const filteredExercises = exercises.filter(exercise => 
-    !selectedExercises.some(se => se.id === exercise.id) && 
+  const filteredExercises = exercises.filter(exercise =>
+    !selectedExercises.some(se => se.id === exercise.id) &&
     exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -249,13 +262,14 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
   }
 
   return (
-    <div className="flex flex-col h-[60vh]">
+    <div className="flex flex-col h-full">
       <form onSubmit={handleSubmit} className="flex flex-col h-full">
         {error && <p className="text-sm text-red-500">{error}</p>}
-        
-        {/* Exercise List */}
-        {selectedExercises.length > 0 && (
-          <div className="flex-1 min-h-0">
+
+        <div className="flex-1 min-h-0 space-y-4">
+          {/* Exercise List */}
+          {selectedExercises.length > 0 && (
+            <div className="h-full">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-muted-foreground">
                 {selectedExercises.length} exercise{selectedExercises.length === 1 ? '' : 's'} selected
@@ -283,7 +297,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
               </Button>
             )}
 
-            <div 
+            <div
               ref={exerciseListRef}
               className="space-y-4 overflow-y-auto pr-2 pb-2 relative"
               style={{ maxHeight: 'calc(100% - 6rem)' }}
@@ -326,7 +340,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                             <div className="text-3xl font-bold">
                               {exercise.sets} sets
                             </div>
-                            
+
                             {/* Slider for sets adjustment */}
                             <div className="w-full px-2 py-2">
                               <div className="flex items-center w-full gap-2">
@@ -339,7 +353,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                 >
                                   <MinusCircle className="h-6 w-6" />
                                 </Button>
-                                
+
                                 <div className="w-full">
                                   <Slider
                                     value={[exercise.sets]}
@@ -355,7 +369,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                     <span>10</span>
                                   </div>
                                 </div>
-                                
+
                                 <Button
                                   type="button"
                                   size="icon"
@@ -400,7 +414,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                             <div className="text-3xl font-bold">
                               {exercise.reps} reps
                             </div>
-                            
+
                             {/* Slider for reps adjustment */}
                             <div className="w-full px-2 py-2">
                               <div className="flex items-center w-full gap-2">
@@ -413,7 +427,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                 >
                                   <MinusCircle className="h-6 w-6" />
                                 </Button>
-                                
+
                                 <div className="w-full">
                                   <Slider
                                     value={[exercise.reps]}
@@ -433,7 +447,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                     <span>30</span>
                                   </div>
                                 </div>
-                                
+
                                 <Button
                                   type="button"
                                   size="icon"
@@ -478,7 +492,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                             <div className="text-3xl font-bold">
                               {exercise.weight} kg
                             </div>
-                            
+
                             {/* Slider for quick weight selection with standard adjustment buttons */}
                             <div className="w-full px-2 py-2">
                               <div className="flex items-center w-full gap-2">
@@ -491,7 +505,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                 >
                                   <MinusCircle className="h-6 w-6" />
                                 </Button>
-                                
+
                                 <div className="w-full">
                                   <Slider
                                     value={[exercise.weight]}
@@ -509,7 +523,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                     <span>200kg</span>
                                   </div>
                                 </div>
-                                
+
                                 <Button
                                   type="button"
                                   size="icon"
@@ -521,7 +535,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                                 </Button>
                               </div>
                             </div>
-                            
+
                             {/* Fine increments (0.5kg) */}
                             <div className="w-full">
                               <Label className="mb-2 block">Fine Adjustment (0.5kg)</Label>
@@ -574,11 +588,12 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                 <ChevronDown className="h-4 w-4 text-muted-foreground animate-bounce" />
               </Button>
             )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* Fixed bottom section */}
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 flex-shrink-0">
           {/* Add Exercise Drawer Section */}
           <div className="rounded-lg border border-dashed p-4">
             <Drawer>
@@ -603,7 +618,7 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  
+
                   {/* Exercise List */}
                   {filteredExercises.length > 0 ? (
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -638,8 +653,8 @@ export default function AddWorkoutForm({ onComplete }: AddWorkoutFormProps) {
           </div>
 
           {selectedExercises.length > 0 && (
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
               disabled={isSubmitting}
             >

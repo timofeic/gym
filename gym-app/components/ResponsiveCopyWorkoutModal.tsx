@@ -11,14 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import CopyWorkoutForm from './CopyWorkoutForm'
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-}
+import { Exercise } from '@/types/exercise'
 
 type Workout = {
   id: string

@@ -19,20 +19,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import { Slider } from "@/components/ui/slider"
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-  categories: string[]
-}
-
-type Category = {
-  id: string
-  name: string
-}
+import { Exercise, Category } from '@/types/exercise'
 
 interface AddExerciseFormProps {
   onComplete: () => void
@@ -54,14 +41,14 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
   useEffect(() => {
     async function fetchCategories() {
       if (!session?.supabaseAccessToken) return
-      
+
       try {
         const supabase = getAuthenticatedClient(session.supabaseAccessToken)
         const { data, error } = await supabase
           .from('categories')
           .select('*')
           .order('name')
-        
+
         if (error) throw error
         if (data) setCategories(data)
       } catch (err) {
@@ -102,7 +89,11 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
 
       const { error: supabaseError } = await supabase
         .from('exercises')
-        .insert([exercise])
+        .insert([{
+          ...exercise,
+          user_id: session.user?.id,
+          is_default: false
+        }])
 
       if (supabaseError) throw supabaseError
 
@@ -173,7 +164,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                 <div className="text-3xl font-bold">
                   {exercise.sets} sets
                 </div>
-                
+
                 {/* Slider for sets adjustment */}
                 <div className="w-full px-2 py-2">
                   <div className="flex items-center w-full gap-2">
@@ -186,7 +177,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                     >
                       <MinusCircle className="h-6 w-6" />
                     </Button>
-                    
+
                     <div className="w-full">
                       <Slider
                         defaultValue={[exercise.sets]}
@@ -209,7 +200,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                         <span>10</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       type="button"
                       size="icon"
@@ -249,7 +240,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                 <div className="text-3xl font-bold">
                   {exercise.reps} reps
                 </div>
-                
+
                 {/* Slider for reps adjustment */}
                 <div className="w-full px-2 py-2">
                   <div className="flex items-center w-full gap-2">
@@ -262,7 +253,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                     >
                       <MinusCircle className="h-6 w-6" />
                     </Button>
-                    
+
                     <div className="w-full">
                       <Slider
                         defaultValue={[exercise.reps]}
@@ -282,7 +273,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                         <span>30</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       type="button"
                       size="icon"
@@ -322,7 +313,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                 <div className="text-3xl font-bold">
                   {exercise.weight} kg
                 </div>
-                
+
                 {/* Slider for quick weight selection with standard adjustment buttons */}
                 <div className="w-full px-2 py-2">
                   <Label className="mb-2 block">Quick Adjustment</Label>
@@ -336,7 +327,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                     >
                       <MinusCircle className="h-6 w-6" />
                     </Button>
-                    
+
                     <div className="w-full">
                       <Slider
                         defaultValue={[exercise.weight]}
@@ -353,7 +344,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                         <span>200kg</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       type="button"
                       size="icon"
@@ -365,7 +356,7 @@ export default function AddExerciseForm({ onComplete }: AddExerciseFormProps) {
                     </Button>
                   </div>
                 </div>
-                
+
                 {/* Fine increments (0.5kg) */}
                 <div className="w-full">
                   <Label className="mb-2 block">Fine Adjustment (0.5kg)</Label>

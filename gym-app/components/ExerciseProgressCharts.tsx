@@ -9,6 +9,7 @@ import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
 import { SearchInput } from './ui/search-input'
 import { CategoryFilter } from './ui/category-filter'
+import { Exercise } from '@/types/exercise'
 
 type ExerciseProgress = {
   date: string
@@ -21,14 +22,6 @@ type ExerciseData = {
   name: string
   categories: string[]
   progress: ExerciseProgress[]
-}
-
-type Exercise = {
-  id: string
-  name: string
-  workout_exercises: Array<{
-    exercise_id: string
-  }>
 }
 
 type WorkoutExerciseData = {
@@ -60,13 +53,13 @@ export default function ExerciseProgressCharts() {
 
       try {
         const supabase = getAuthenticatedClient(session.supabaseAccessToken)
-        
+
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
           .select()
           .order('name')
-        
+
         if (categoriesError) throw categoriesError
         if (categoriesData) {
           setCategories(categoriesData)
@@ -99,7 +92,7 @@ export default function ExerciseProgressCharts() {
 
         // For each qualifying exercise, fetch its progress data
         const exerciseData: ExerciseData[] = []
-        
+
         for (const exercise of qualifyingExercises) {
           const { data: progressData, error: progressError } = await supabase
             .from('workout_exercises')
@@ -142,7 +135,7 @@ export default function ExerciseProgressCharts() {
   }, [session?.supabaseAccessToken, minWorkouts])
 
   const toggleCategory = (categoryName: string) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(categoryName)
         ? prev.filter(c => c !== categoryName)
         : [...prev, categoryName]
@@ -151,7 +144,7 @@ export default function ExerciseProgressCharts() {
 
   const filteredExercises = exercises.filter(exercise =>
     exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (selectedCategories.length === 0 || 
+    (selectedCategories.length === 0 ||
     selectedCategories.some(category => exercise.categories?.includes(category)))
   )
 
@@ -217,7 +210,7 @@ export default function ExerciseProgressCharts() {
         <Card>
           <CardContent className="py-4">
             <p className="text-muted-foreground">
-              {exercises.length === 0 
+              {exercises.length === 0
                 ? `No exercises found with ${minWorkouts} or more workouts.`
                 : searchTerm
                   ? 'No exercises match your search.'
@@ -249,4 +242,4 @@ export default function ExerciseProgressCharts() {
       )}
     </div>
   )
-} 
+}

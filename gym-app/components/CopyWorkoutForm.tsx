@@ -16,20 +16,13 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import { Slider } from "@/components/ui/slider"
+import { Exercise } from '@/types/exercise'
 
 const VALIDATION = {
   sets: { min: 1, max: 10 },
   reps: { min: 1, max: 100 },
   weight: { min: 0, max: 500 }
 } as const
-
-type Exercise = {
-  id: string
-  name: string
-  sets: number
-  reps: number
-  weight: number
-}
 
 interface CopyWorkoutFormProps {
   exercises: Exercise[]
@@ -144,7 +137,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                             <div className="text-3xl font-bold">
                               {exercise.sets} sets
                             </div>
-                            
+
                             {/* Slider for sets adjustment */}
                             <div className="w-full px-2 py-2">
                               <div className="flex items-center w-full gap-2">
@@ -157,7 +150,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                 >
                                   <MinusCircle className="h-6 w-6" />
                                 </Button>
-                                
+
                                 <div className="w-full">
                                   <Slider
                                     value={[exercise.sets]}
@@ -173,7 +166,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                     <span>10</span>
                                   </div>
                                 </div>
-                                
+
                                 <Button
                                   type="button"
                                   size="icon"
@@ -213,7 +206,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                             <div className="text-3xl font-bold">
                               {exercise.reps} reps
                             </div>
-                            
+
                             {/* Slider for reps adjustment */}
                             <div className="w-full px-2 py-2">
                               <div className="flex items-center w-full gap-2">
@@ -226,7 +219,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                 >
                                   <MinusCircle className="h-6 w-6" />
                                 </Button>
-                                
+
                                 <div className="w-full">
                                   <Slider
                                     value={[exercise.reps]}
@@ -246,7 +239,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                     <span>30</span>
                                   </div>
                                 </div>
-                                
+
                                 <Button
                                   type="button"
                                   size="icon"
@@ -286,7 +279,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                             <div className="text-3xl font-bold">
                               {exercise.weight} kg
                             </div>
-                            
+
                             {/* Slider for quick weight selection with standard adjustment buttons */}
                             <div className="w-full px-2 py-2">
                               <div className="flex items-center w-full gap-2">
@@ -299,7 +292,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                 >
                                   <MinusCircle className="h-6 w-6" />
                                 </Button>
-                                
+
                                 <div className="w-full">
                                   <Slider
                                     value={[exercise.weight]}
@@ -317,7 +310,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                     <span>200kg</span>
                                   </div>
                                 </div>
-                                
+
                                 <Button
                                   type="button"
                                   size="icon"
@@ -329,7 +322,7 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
                                 </Button>
                               </div>
                             </div>
-                            
+
                             {/* Fine increments (0.5kg) */}
                             <div className="w-full">
                               <Label className="mb-2 block">Fine Adjustment (0.5kg)</Label>
@@ -372,11 +365,11 @@ export default function CopyWorkoutForm({ exercises: initialExercises, onComplet
             </div>
           </div>
         </div>
-        
+
         <div className="flex-none mt-4 pt-2 border-t bg-background">
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Copying Workout...' : 'Copy Workout'}
