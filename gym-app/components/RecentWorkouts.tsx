@@ -45,6 +45,7 @@ type WorkoutExercise = {
   exercises: {
     id: string;
     name: string;
+    categories: string[];
   };
 }
 
@@ -182,7 +183,8 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
             weight,
             exercises (
               id,
-              name
+              name,
+              categories
             )
           )
         `)
@@ -200,7 +202,8 @@ export default function RecentWorkouts({ refreshTrigger = 0 }: RecentWorkoutsPro
             name: we.exercises.name,
             sets: we.sets,
             reps: we.reps,
-            weight: we.weight
+            weight: we.weight,
+            categories: we.exercises.categories || []
           }))
         }))
         setWorkouts(formattedWorkouts)

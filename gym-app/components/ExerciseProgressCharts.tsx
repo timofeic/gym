@@ -76,7 +76,13 @@ export default function ExerciseProgressCharts() {
               exercise_id
             )
           `)
-          .order('name', { ascending: true }) as { data: (Exercise & { categories: string[] })[] | null, error: Error | null }
+          .order('name', { ascending: true }) as {
+            data: (Exercise & {
+              categories: string[]
+              workout_exercises: Array<{ exercise_id: string }>
+            })[] | null
+            error: Error | null
+          }
 
         if (countError) throw countError
 
