@@ -33,7 +33,7 @@ export default function AddWorkoutButton({ onWorkoutAdded }: AddWorkoutButtonPro
           Add Workout
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="px-4 pb-4 h-[100vh] flex flex-col">
+      <DrawerContent className="px-4 pb-4 min-h-[60dvh] max-h-[calc(100dvh-1rem)] flex flex-col">
         <DrawerHeader className="pb-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <DrawerTitle>Add New Workout</DrawerTitle>

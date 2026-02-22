@@ -104,6 +104,7 @@ const Drawer = ({
   <DrawerWrapper>
     <DrawerPrimitive.Root
       shouldScaleBackground={shouldScaleBackground}
+      repositionInputs={false}
       {...props}
     />
   </DrawerWrapper>
@@ -142,7 +143,7 @@ const DrawerContent = React.forwardRef<
         ref={ref}
         aria-describedby={undefined} // Explicitly set aria-describedby to undefined to suppress any warnings
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+          "fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-[10px] border bg-background pb-[env(safe-area-inset-bottom)]",
           className
         )}
         {...props}
