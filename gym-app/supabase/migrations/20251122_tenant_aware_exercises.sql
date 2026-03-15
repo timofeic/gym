@@ -3,7 +3,7 @@
 
 -- Add new columns to exercises table
 ALTER TABLE exercises
-ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES next_auth.users(id) ON DELETE CASCADE,
 ADD COLUMN IF NOT EXISTS parent_exercise_id UUID REFERENCES exercises(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE;
 

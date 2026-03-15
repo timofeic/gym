@@ -158,12 +158,13 @@ export default function EditExerciseForm({ exercise: initialExercise, onComplete
         // Copy-on-write: Create a new custom exercise
         console.log('Creating custom version of default exercise')
 
-        // Check for duplicate exercise names
+        // Check for duplicate exercise names (exclude the default being customized)
         const normalizedName = normalizeExerciseName(exercise.name)
         const { data: existingExercises, error: checkError } = await supabaseClient
           .from('exercises')
           .select('id, name')
           .eq('normalized_name', normalizedName)
+          .neq('id', initialExercise.id)
 
         if (checkError) throw checkError
 
