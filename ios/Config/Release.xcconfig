@@ -4,9 +4,9 @@
 // In xcconfig files "//" starts a comment, so URLs use $(SLASH).
 SLASH = /
 
-// Sign-in service and voice tokens: the gym app's Vercel production alias
+// Sign-in service and voice tokens: the gym app's Vercel production URL
 // (Vercel project gym-track). Needs the /api/native/* routes deployed.
-GYM_SERVICE_URL = https:$(SLASH)$(SLASH)gym-track-timofeics-projects.vercel.app
+GYM_SERVICE_URL = https:$(SLASH)$(SLASH)gym-overload.vercel.app
 
 // Hosted Supabase. The anon key is public by design (row-level security
 // guards the data); it is the same value the web app ships to browsers.
