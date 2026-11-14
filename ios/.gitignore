@@ -1,0 +1,6 @@
+Config/Local.xcconfig
+*.xcodeproj
+build/
+DerivedData/
+.build/
+screens/

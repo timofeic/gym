@@ -1,8 +1,13 @@
 # Gym Tracker
 
-A mobile-first workout tracker built with Next.js, Supabase, and NextAuth.
+A workout tracker with a web app (Next.js), a native iPhone app (SwiftUI),
+and a voice coach (LiveKit + Claude). All three share one Supabase database.
 
-## Stack
+- iPhone app: [ios/README.md](ios/README.md)
+- Voice coach agent: [agent/README.md](agent/README.md)
+- How they fit together: [docs/native-architecture.md](docs/native-architecture.md)
+
+## Web app stack
 
 - Next.js 15 (App Router)
 - React 19
@@ -15,11 +20,15 @@ A mobile-first workout tracker built with Next.js, Supabase, and NextAuth.
 
 ```txt
 .
-├── gym-app/            # Next.js app
+├── gym-app/            # Next.js app + sign-in service for the iPhone (app/api/native)
 │   ├── app/
 │   ├── components/
 │   ├── lib/
-│   └── supabase/       # SQL migrations
+│   ├── scripts/localdb # Docker-free local database for tests
+│   └── supabase/       # SQL migrations + local seed data
+├── ios/                # SwiftUI iPhone app
+├── agent/              # LiveKit voice coach (Python)
+├── docs/
 └── README.md
 ```
 

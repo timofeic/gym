@@ -1,0 +1,12 @@
+// Shared settings. Put your real values in Local.xcconfig (not checked in).
+// Copy Local.example.xcconfig to Local.xcconfig to start.
+// Note: in xcconfig files "//" starts a comment, so URLs use $(SLASH).
+SLASH = /
+GYM_SERVICE_URL = http:$(SLASH)$(SLASH)localhost:3030
+SUPABASE_URL = http:$(SLASH)$(SLASH)127.0.0.1:54321
+SUPABASE_ANON_KEY =
+DEV_LOGIN_EMAIL =
+GOOGLE_IOS_CLIENT_ID =
+GOOGLE_WEB_CLIENT_ID =
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.unset
+#include? "Local.xcconfig"
