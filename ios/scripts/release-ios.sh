@@ -132,6 +132,10 @@ case "$(plist GymServiceURL)" in https://*) ;; *) fail "GymServiceURL is not htt
 case "$(plist SupabaseURL)" in https://*) ;; *) fail "SupabaseURL is not https: $(plist SupabaseURL)";; esac
 [ -n "$(plist SupabaseAnonKey)" ]              || fail "SupabaseAnonKey is empty"
 [ "$(plist ITSAppUsesNonExemptEncryption)" = "false" ] || fail "ITSAppUsesNonExemptEncryption missing"
+# LiveKit references camera APIs, so Apple wants this even though Gym never
+# uses the camera (ITMS-90683 rejected build 2 for it).
+[ -n "$(plist NSCameraUsageDescription)" ]     || fail "NSCameraUsageDescription is missing"
+[ -n "$(plist NSMicrophoneUsageDescription)" ] || fail "NSMicrophoneUsageDescription is missing"
 [ -f "$APP/PrivacyInfo.xcprivacy" ]            || fail "PrivacyInfo.xcprivacy is not in the app bundle"
 codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q com.apple.developer.applesignin \
   || fail "the signed app lacks the Sign in with Apple entitlement"

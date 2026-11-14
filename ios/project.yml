@@ -43,6 +43,9 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [audio]
         NSMicrophoneUsageDescription: The voice coach listens so you can log workouts and ask questions hands-free.
+        # Gym never turns the camera on. LiveKit's SDK can send video, so Apple
+        # rejects uploads without this (ITMS-90683).
+        NSCameraUsageDescription: Gym doesn't use your camera. The voice coach only uses your microphone.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         GymServiceURL: $(GYM_SERVICE_URL)

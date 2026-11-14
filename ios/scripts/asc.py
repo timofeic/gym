@@ -40,17 +40,37 @@ def app_id(bundle):
     return apps[0]["id"]
 
 
+def uploads(app):
+    # Every upload, including ones Apple rejected (those never become builds
+    # but still use up their number).
+    return get(f"/v1/apps/{app}/buildUploads", limit="200")["data"]
+
+
 def latest_build(bundle):
-    builds = get("/v1/builds", **{"filter[app]": app_id(bundle), "sort": "-uploadedDate",
-                                  "limit": "50", "fields[builds]": "version"})["data"]
-    nums = [int(b["attributes"]["version"]) for b in builds if b["attributes"]["version"].isdigit()]
-    print(max(nums, default=0))
+    app = app_id(bundle)
+    builds = get("/v1/builds", **{"filter[app]": app, "limit": "200", "fields[builds]": "version"})["data"]
+    versions = [b["attributes"]["version"] for b in builds]
+    versions += [u["attributes"]["cfBundleVersion"] for u in uploads(app)]
+    print(max((int(v) for v in versions if v.isdigit()), default=0))
 
 
 def build_state(bundle, number):
-    builds = get("/v1/builds", **{"filter[app]": app_id(bundle), "filter[version]": number,
+    """VALID when ready to test; FAILED with Apple's reasons on stderr."""
+    app = app_id(bundle)
+    builds = get("/v1/builds", **{"filter[app]": app, "filter[version]": number,
                                   "fields[builds]": "processingState"})["data"]
-    print(builds[0]["attributes"]["processingState"] if builds else "NOT_FOUND")
+    if builds:
+        print(builds[0]["attributes"]["processingState"])
+        return
+    for u in uploads(app):
+        a = u["attributes"]
+        if a["cfBundleVersion"] == number:
+            state = a["state"]
+            for e in state.get("errors", []):
+                print(f'ITMS-{e["code"]}: {e["description"]}', file=sys.stderr)
+            print(state["state"])
+            return
+    print("NOT_FOUND")
 
 
 def install_profile(name):

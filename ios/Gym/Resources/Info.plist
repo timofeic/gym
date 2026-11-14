@@ -44,6 +44,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Gym doesn't use your camera. The voice coach only uses your microphone.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The voice coach listens so you can log workouts and ask questions hands-free.</string>
 	<key>SupabaseAnonKey</key>
