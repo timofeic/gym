@@ -173,10 +173,10 @@ if [ "$WAIT" = 1 ]; then
   done
 fi
 
-cat <<EOF
-
-==> Uploaded Gym $MARKETING ($NEXT)
-
-Apple takes about 5 to 15 minutes to process it. Internal testers in the
-"Internal" group then get it automatically in the TestFlight app.
-EOF
+printf '\n==> Uploaded Gym %s (%s)\n\n' "$MARKETING" "$NEXT"
+if [ "$WAIT" = 1 ]; then
+  echo "Processed. Testers in the \"Internal\" group get it in the TestFlight app now."
+else
+  echo "Apple takes about 5 to 15 minutes to process it (run with --wait to watch)."
+  echo "Testers in the \"Internal\" group then get it in the TestFlight app."
+fi
