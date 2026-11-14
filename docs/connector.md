@@ -136,6 +136,13 @@ in the Google OAuth client.
 - `node gym-app/scripts/connector-e2e.mjs <base url> <session token>`: the full
   flow over HTTP with the official MCP client, the way Claude does it.
 - MCP Inspector: `npx @modelcontextprotocol/inspector`, Streamable HTTP, URL above.
+- Trying it in Claude against the local database: run the app locally, expose
+  it with `cloudflared tunnel --url http://localhost:3000`, and set
+  `CONNECTOR_DEV_LOGIN_EMAIL=lifter@example.test` in `.env.local`. The consent
+  page then shows "Continue as lifter@example.test (local test only)", since
+  Google sign-in won't accept a tunnel address. It's ignored in production.
+  Dev mode compiles routes on first use, which can exceed Claude's 10 second
+  limit on a busy machine: load each route once before connecting.
 
 ## Listing it in the directories
 
