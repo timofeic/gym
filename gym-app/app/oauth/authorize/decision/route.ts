@@ -16,7 +16,8 @@ const page = (message: string, status: number) =>
 
 export async function POST(req: Request) {
   const deps = mcpDeps(req)
-  const form = await req.formData()
+  const form = await req.formData().catch(() => null)
+  if (!form) return page('Something went wrong. Go back to Claude or ChatGPT and connect again.', 400)
   const user = await webUser()
   if (!user) return page('You were signed out. Go back to Claude or ChatGPT and connect again.', 401)
 

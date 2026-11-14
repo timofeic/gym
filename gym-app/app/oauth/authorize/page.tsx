@@ -4,6 +4,7 @@ import { signIn } from '@/auth'
 import { checkAuthorizeRequest, signConsent } from '@/lib/mcp/oauth'
 import { mcpDeps, originFrom } from '@/lib/mcp/config'
 import { webUser } from '@/lib/mcp/session'
+import { devLoginEmail, devSignIn } from '@/lib/mcp/devlogin'
 
 // The connector's sign-in and consent page. Claude or ChatGPT sends people
 // here; they sign in with Google (same account as the website), see what the
@@ -51,6 +52,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
 
   if (!user) {
     const here = `/oauth/authorize?${q.toString()}`
+    const devEmail = devLoginEmail()
+    const secure = origin.startsWith('https:')
     return (
       <Card>
         <h1 className="text-xl font-semibold">Connect {appName} to Gym</h1>
@@ -62,6 +65,13 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
             Sign in with Google
           </button>
         </form>
+        {devEmail && (
+          <form action={async () => { 'use server'; await devSignIn(secure); redirect(here) }}>
+            <button type="submit" className="w-full rounded-md border border-dashed border-gray-400 px-4 py-2 text-sm">
+              Continue as {devEmail} (local test only)
+            </button>
+          </form>
+        )}
       </Card>
     )
   }
