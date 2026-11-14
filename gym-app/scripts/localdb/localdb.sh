@@ -10,7 +10,8 @@ export LC_ALL=C
 APP="$(cd "$(dirname "$0")/../.." && pwd)"
 DIR="$APP/.localdb"
 DATA="$DIR/data"
-PG_PORT=54322 REST_PORT=54320 API_PORT=54321
+# Override the ports to run several copies side by side (one per worktree).
+PG_PORT=${LOCALDB_PG_PORT:-54322} REST_PORT=${LOCALDB_REST_PORT:-54320} API_PORT=${LOCALDB_API_PORT:-54321}
 JWT_SECRET="super-secret-jwt-token-with-at-least-32-characters-long"
 PSQL=(psql -h 127.0.0.1 -p $PG_PORT -U postgres -v ON_ERROR_STOP=1 -q)
 
