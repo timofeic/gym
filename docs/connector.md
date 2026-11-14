@@ -7,7 +7,7 @@ Claude or ChatGPT. Gym only answers tool calls.
 The connector is a remote MCP server at:
 
 ```txt
-https://<your gym site>/api/mcp
+https://gym-overload.vercel.app/api/mcp
 ```
 
 ## Add it to Claude
@@ -17,7 +17,7 @@ on the web it also shows in the Claude desktop and iPhone apps, including voice
 mode.
 
 1. In Claude, go to **Customize > Connectors**, then **Add > Add custom connector**.
-2. Name: `Gym`. URL: `https://<your gym site>/api/mcp`. Click **Continue**, keep
+2. Name: `Gym`. URL: `https://gym-overload.vercel.app/api/mcp`. Click **Continue**, keep
    the options marked **Detected**, then **Add**.
 3. Click **Connect**. A Gym page opens: sign in with Google (the same account
    you use for Gym), then press **Allow**.
@@ -35,7 +35,7 @@ tools that save data, so logging may only work on Business and up for now.
 
 1. **Settings > Apps & Connectors > Advanced settings**: turn on **Developer mode**.
 2. **Settings > Apps & Connectors > Create** (or **Add app**). Name `Gym`, URL
-   `https://<your gym site>/api/mcp`, authentication **OAuth**. Tick that you
+   `https://gym-overload.vercel.app/api/mcp`, authentication **OAuth**. Tick that you
    trust it, then **Create**.
 3. Sign in with Google on the Gym page and press **Allow**.
 4. In a new chat, pick Gym from the **+** menu (Developer mode) and ask a question.
