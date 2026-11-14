@@ -1,15 +1,15 @@
+import AVFAudio
 import Foundation
 import GymCore
 import LiveKit
 
-/// The voice coach conversation. Gets a LiveKit pass from the gym service,
+/// The in-app voice coach (opt-in, see `VoiceCoachSetting`). Gets a LiveKit pass from the gym service,
 /// joins the room (which brings the "gym-coach" agent in), and listens for the
 /// agent's data messages so the screens stay current.
 @MainActor @Observable
 final class VoiceCoach {
     private(set) var session: Session?
     private(set) var isStarting = false
-    private(set) var restTimerEnds: Date?
     private(set) var micOn = true
     var error: String?
     var onMessage: (@MainActor (CoachMessage) -> Void)?
@@ -28,6 +28,11 @@ final class VoiceCoach {
         isStarting = true
         error = nil
         defer { isStarting = false }
+        // The microphone is only asked for here, when the coach starts.
+        guard await Self.microphoneAllowed() else {
+            error = "Gym can't use the microphone. Turn it on in the Settings app under Gym, then try again."
+            return
+        }
         do {
             let pass = try await service.voicePass(accessToken: accessToken)
             guard let url = URL(string: pass.serverUrl) else {
@@ -52,7 +57,6 @@ final class VoiceCoach {
         if let session { await session.end() }
         session = nil
         listener = nil
-        restTimerEnds = nil
     }
 
     func toggleMic() async {
@@ -65,14 +69,28 @@ final class VoiceCoach {
         }
     }
 
-    func cancelRestTimer() { restTimerEnds = nil }
-
     private func handle(_ message: CoachMessage) {
         if case .restTimer(let seconds) = message {
-            restTimerEnds = Date().addingTimeInterval(TimeInterval(seconds))
+            // Same timer as the workout screen and Siri, so it keeps going
+            // in the background and notifies when done.
+            Task { try? await RestTimerEngine.shared.start(seconds: seconds) }
         }
         onMessage?(message)
     }
+
+    private static func microphoneAllowed() async -> Bool {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted: return true
+        case .denied: return false
+        default: return await AVAudioApplication.requestRecordPermission()
+        }
+    }
+}
+
+/// "Voice coach in the app" in Settings. Off by default: most people talk to
+/// the gym through their own Claude or ChatGPT app instead.
+enum VoiceCoachSetting {
+    static let key = "voiceCoachEnabled"
 }
 
 /// Receives LiveKit data packets off the main thread and hands parsed

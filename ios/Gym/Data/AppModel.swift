@@ -16,9 +16,20 @@ final class AppModel {
 
     var calendar = Stats.calendar()
 
+    /// Posted when something outside the screens (a Siri shortcut) saved a workout.
+    nonisolated static let dataChangedElsewhere = Notification.Name("gym.data-changed-elsewhere")
+    @ObservationIgnored private var observer: (any NSObjectProtocol)?
+
     init(store: GymStore, user: SignedInUser) {
         self.store = store
         self.user = user
+        observer = NotificationCenter.default.addObserver(forName: Self.dataChangedElsewhere, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in await self?.reload(.workouts) }
+        }
+    }
+
+    isolated deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 
     var weekPerDay: [Stats.DayCount] { Stats.workoutsPerDay(history, now: Date(), calendar: calendar) }

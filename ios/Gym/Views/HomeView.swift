@@ -6,9 +6,14 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     @State private var editor: WorkoutEditor.Mode?
     @State private var toDelete: Workout?
+    @State private var timer = RestTimerEngine.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         List {
+            if timer.state != nil {
+                Section { RestTimerBanner() }
+            }
             Section("This week") {
                 Chart(model.weekPerDay) { day in
                     BarMark(x: .value("Day", day.label), y: .value("Workouts", day.workouts))
@@ -73,6 +78,10 @@ struct HomeView: View {
         }
         .navigationTitle("Overview")
         .refreshable { await model.loadAll() }
+        // A set logged with Siri while Gym was in the background shows on return.
+        .onChange(of: scenePhase) { old, new in
+            if old == .background && new != .background { Task { await model.reload(.workouts) } }
+        }
         .sheet(item: $editor) { WorkoutEditor(mode: $0) }
         .confirmationDialog("Delete this workout?", isPresented: .init(
             get: { toDelete != nil }, set: { if !$0 { toDelete = nil } }), titleVisibility: .visible
@@ -137,6 +146,14 @@ struct WorkoutEditor: View {
                     Text("Exercises")
                 } footer: {
                     if entries.isEmpty { Text("Add at least one exercise.") }
+                }
+                Section {
+                    RestTimerBanner()
+                    StartRestButton()
+                } header: {
+                    Text("Rest between sets")
+                } footer: {
+                    Text("Keeps counting if you leave the app. You'll get a notification when it's done.")
                 }
             }
             .navigationTitle(title)
