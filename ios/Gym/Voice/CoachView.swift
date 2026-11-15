@@ -1,15 +1,19 @@
+import UIKit
 import LiveKit
 import SwiftUI
 
 struct CoachView: View {
     @Environment(VoiceCoach.self) private var coach
+    @AppStorage(VoiceCoachSetting.key) private var voiceCoachOn = false
 
     var body: some View {
         Group {
             if let session = coach.session {
                 LiveCoach(session: session)
-            } else {
+            } else if voiceCoachOn {
                 idle
+            } else {
+                ConnectorGuide()
             }
         }
         .navigationTitle("Coach")
@@ -28,6 +32,7 @@ struct CoachView: View {
             }
             .font(.callout).foregroundStyle(.secondary)
             Spacer()
+            RestTimerBanner()
             Button {
                 Task { await coach.start() }
             } label: {
@@ -36,12 +41,95 @@ struct CoachView: View {
             .buttonStyle(.borderedProminent).controlSize(.large)
             .disabled(coach.isStarting)
             .accessibilityIdentifier("startCoach")
+            Text("Gym asks for the microphone when you start, so the coach can hear you.")
+                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             if let error = coach.error {
                 Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
                     .accessibilityIdentifier("coachError")
             }
         }
         .padding(24)
+    }
+}
+
+/// The default Coach tab: how to use the gym from your own Claude or ChatGPT
+/// app, which includes their voice modes.
+struct ConnectorGuide: View {
+    @Environment(Auth.self) private var auth
+    @State private var copied = false
+
+    private var connectorURL: String { auth.config.serviceURL.appending(path: "api/mcp").absoluteString }
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                        .font(.system(size: 44)).foregroundStyle(.tint)
+                    Text("Coach in Claude or ChatGPT").font(.title2.bold())
+                    Text("Add Gym to the Claude or ChatGPT app you already use. Then ask about your training, log sets, or talk it through in voice mode.")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 6)
+            }
+
+            Section {
+                Text(connectorURL)
+                    .font(.callout.monospaced())
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("connectorURL")
+                Button {
+                    UIPasteboard.general.string = connectorURL
+                    copied = true
+                    Task { try? await Task.sleep(for: .seconds(2)); copied = false }
+                } label: {
+                    Label(copied ? "Copied" : "Copy link", systemImage: copied ? "checkmark" : "doc.on.doc")
+                }
+                .accessibilityIdentifier("copyConnectorURL")
+            } header: {
+                Text("Connector link")
+            }
+
+            Section("In Claude") {
+                Step(n: 1, text: "On claude.ai or the Claude desktop app, open Settings, then Connectors.")
+                Step(n: 2, text: "Choose Add custom connector, name it Gym and paste the link.")
+                Step(n: 3, text: "Sign in to Gym and tap Allow.")
+                Step(n: 4, text: "It now works in the Claude iPhone app too, including voice mode.")
+            }
+
+            Section("In ChatGPT") {
+                Step(n: 1, text: "In ChatGPT settings, open Apps and Connectors, then Advanced, and turn on Developer mode.")
+                Step(n: 2, text: "Create a connector, name it Gym and paste the link.")
+                Step(n: 3, text: "Sign in to Gym and tap Allow.")
+            }
+
+            Section("Try asking") {
+                Label("\u{201C}What did I do last Monday?\u{201D}", systemImage: "calendar")
+                Label("\u{201C}Log bench, 3 sets of 8 at 80.\u{201D}", systemImage: "square.and.pencil")
+                Label("\u{201C}How many leg sets this week?\u{201D}", systemImage: "chart.bar")
+            }
+            .font(.callout)
+
+            Section {
+                Text("To stop an app reading your workouts, revoke it in Settings under Connected apps. Prefer to talk in this app? Turn on Voice coach in the app in Settings.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier("connectorGuide")
+    }
+}
+
+private struct Step: View {
+    let n: Int
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("\(n)").font(.callout.bold()).foregroundStyle(.white)
+                .frame(width: 24, height: 24).background(Color.accentColor, in: Circle())
+            Text(text)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -57,9 +145,7 @@ private struct LiveCoach: View {
 
             Text(statusText).font(.headline).accessibilityIdentifier("coachStatus")
 
-            if let ends = coach.restTimerEnds {
-                RestTimer(ends: ends) { coach.cancelRestTimer() }
-            }
+            RestTimerBanner().padding(.horizontal)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -149,28 +235,6 @@ private struct Bubble: View {
             Text(text).padding(10)
                 .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
                 .frame(maxWidth: .infinity, alignment: .trailing)
-        }
-    }
-}
-
-private struct RestTimer: View {
-    let ends: Date
-    let cancel: () -> Void
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let left = max(0, Int(ends.timeIntervalSince(context.date).rounded(.up)))
-            HStack {
-                Image(systemName: "timer")
-                Text(left > 0 ? "Rest \(left / 60):\(String(format: "%02d", left % 60))" : "Rest done")
-                    .monospacedDigit().font(.title3.bold())
-                Spacer()
-                Button("Skip", action: cancel)
-            }
-            .padding()
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal)
-            .accessibilityIdentifier("restTimer")
         }
     }
 }
