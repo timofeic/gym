@@ -21,7 +21,7 @@ final class Auth {
         self.config = config
         self.service = GymService(baseURL: config.serviceURL)
         if ProcessInfo.processInfo.arguments.contains("-resetSession") { Keychain.delete() }
-        if let saved = Keychain.load(), !saved.isExpired { session = saved }
+        if let saved = Keychain.load(), !saved.isExpired { session = saved } else { AppleID.delete() }
     }
 
     /// The raw nonce for the Apple sheet that is open now. Apple gets its
@@ -136,6 +136,8 @@ final class Auth {
         defer { isWorking = false }
         do {
             let s = try await work()
+            // Forget any earlier Apple id; the Apple path saves its own after this.
+            AppleID.delete()
             Keychain.save(s)
             session = s
         } catch let e as GIDSignInError where e.code == .canceled {
