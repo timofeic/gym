@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>destination</key><string>upload</string>
+  <key>teamID</key><string>L3TR2JRJK9</string>
+
+  <!--
+    Manual, matching the Release settings in project.yml. With automatic
+    signing the export tries cloud signing, which needs an Admin API key; the
+    upload key is App Manager. Naming the profile means no lookup and no cloud
+    call.
+  -->
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Apple Distribution</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>com.timofeic.gym</key><string>Gym App Store</string>
+  </dict>
+
+  <key>manageAppVersionAndBuildNumber</key><false/>
+  <key>uploadSymbols</key><true/>
+</dict>
+</plist>
