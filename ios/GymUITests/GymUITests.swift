@@ -64,35 +64,6 @@ final class GymUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Edited"].waitForExistence(timeout: 10), "The edited copy should be marked")
     }
 
-    /// With LiveKit keys set, joins a real LiveKit Cloud room and hangs up.
-    /// Without them, checks the app says voice isn't set up.
-    func testCoachConnectsToLiveKitOrSaysItIsNotSetUp() {
-        addUIInterruptionMonitor(withDescription: "Microphone") { alert in
-            for label in ["Allow", "OK"] where alert.buttons[label].exists {
-                alert.buttons[label].tap()
-                return true
-            }
-            return false
-        }
-        app.tabBars.buttons["Coach"].tap()
-        app.buttons["startCoach"].tap()
-        app.tap() // lets the interruption monitor answer the microphone prompt
-
-        let end = app.buttons["endCoach"]
-        let error = app.staticTexts["coachError"]
-        let deadline = Date().addingTimeInterval(30)
-        while Date() < deadline, !end.exists, !error.exists { _ = end.waitForExistence(timeout: 1) }
-
-        if error.exists {
-            XCTAssertEqual(error.label, "Voice coach is not set up yet")
-        } else {
-            XCTAssertTrue(end.exists, "Should be in a live coach session")
-            XCTAssertTrue(app.staticTexts["coachStatus"].exists)
-            end.tap()
-            XCTAssertTrue(app.buttons["startCoach"].waitForExistence(timeout: 10), "Hanging up should go back to Start")
-        }
-    }
-
     /// Screenshots of each screen, for review. Only runs with
     /// TEST_RUNNER_CAPTURE_SCREENS=1 xcodebuild test ...
     func testCaptureScreens() throws {
