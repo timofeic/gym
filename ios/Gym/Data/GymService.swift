@@ -28,6 +28,12 @@ struct GymService: Sendable {
         try await post("api/native/session", body: ["idToken": googleIdToken])
     }
 
+    func signIn(appleIdentityToken: String, nonce: String, name: String?) async throws -> Session {
+        var body = ["identityToken": appleIdentityToken, "nonce": nonce]
+        if let name, !name.isEmpty { body["name"] = name }
+        return try await post("api/native/apple-session", body: body)
+    }
+
     func devSignIn(email: String) async throws -> Session {
         try await post("api/native/dev-session", body: ["email": email])
     }

@@ -1,3 +1,4 @@
+import AuthenticationServices
 import GymCore
 import SwiftUI
 
@@ -19,6 +20,7 @@ struct RootView: View {
 
 struct SignInView: View {
     @Environment(Auth.self) private var auth
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 24) {
@@ -28,22 +30,33 @@ struct SignInView: View {
             Text("Log workouts, track progress, and talk to your coach.")
                 .multilineTextAlignment(.center).foregroundStyle(.secondary)
             Spacer()
-            if auth.canUseGoogle {
-                Button { Task { await auth.signInWithGoogle() } } label: {
-                    Label("Sign in with Google", systemImage: "person.crop.circle").frame(maxWidth: .infinity)
+            VStack(spacing: 12) {
+                SignInWithAppleButton(.signIn) { request in
+                    auth.prepareAppleRequest(request)
+                } onCompletion: { result in
+                    Task { await auth.finishAppleSignIn(result) }
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large)
-                .accessibilityIdentifier("signInGoogle")
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                .frame(height: 50)
+                .accessibilityIdentifier("signInApple")
+
+                if auth.canUseGoogle {
+                    Button { Task { await auth.signInWithGoogle() } } label: {
+                        Label("Sign in with Google", systemImage: "person.crop.circle")
+                            .font(.title3.weight(.medium))
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .buttonStyle(.bordered).tint(.primary)
+                    .buttonBorderShape(.roundedRectangle(radius: 8))
+                    .accessibilityIdentifier("signInGoogle")
+                }
+                if auth.canUseDevSignIn {
+                    Button("Dev sign-in") { Task { await auth.devSignIn() } }
+                        .buttonStyle(.bordered).controlSize(.large)
+                        .accessibilityIdentifier("signInDev")
+                }
             }
-            if auth.canUseDevSignIn {
-                Button("Dev sign-in") { Task { await auth.devSignIn() } }
-                    .buttonStyle(.bordered).controlSize(.large)
-                    .accessibilityIdentifier("signInDev")
-            }
-            if !auth.canUseGoogle && !auth.canUseDevSignIn {
-                Text("Sign-in isn't set up. Add Google client ids to Config/Local.xcconfig.")
-                    .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            }
+            .disabled(auth.isWorking)
             if auth.isWorking { ProgressView() }
             if let error = auth.error {
                 Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
