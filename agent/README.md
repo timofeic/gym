@@ -92,7 +92,13 @@ Edit `.env`, then:
 lk agent update-secrets --secrets-file .env
 ```
 
-This restarts the agent. `lk agent secrets` lists the names (not the values).
+This adds or updates the secrets in the file and leaves the others alone (add
+`--overwrite` to replace them all). It restarts the agent. `lk agent secrets`
+lists the names, not the values.
+
+`ANTHROPIC_API_KEY` was added in the LiveKit Cloud dashboard (Agents > gym-coach
+> Secrets), not from `.env`. Leave it empty in `.env` and pass
+`--ignore-empty-secrets`, or set it in the dashboard again if you rotate it.
 
 ### Logs
 
@@ -110,13 +116,14 @@ dashboard under Agents > gym-coach > Sessions.
 uv run python scripts/voice_check.py
 ```
 
-This joins a room the same way the iPhone app does, as a throwaway user, and
-types to the coach instead of talking. It asks the coach to log squats 5 by 5
-at 100 kg, says yes, and waits for the `gym.data-changed` message. Then it
-reads the workout back from Supabase and deletes the throwaway user (which
-deletes their workout too). Add `--keep` to leave them. It reads the Supabase
-service role key from `../gym-app/.env.local`, so that key never goes into the
-agent's secrets.
+This joins a room the same way the iPhone app does, as a throwaway user
+(`voice-check+<random>@f7i.ai`), and types to the coach instead of talking. It
+asks the coach to log squats 5 by 5 at 100 kg, says yes, and waits for the
+`gym.data-changed` message. Then it reads the workout back from Supabase and
+deletes the throwaway user's workout rows and then the user. Add `--keep` to
+leave them. It reads the Supabase service role key from `../gym-app/.env.local`,
+so that key never goes into the agent's secrets. In a git worktree that file
+isn't there, so pass `--app-env /path/to/gym-app/.env.local`.
 
 ## Tests
 
