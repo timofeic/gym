@@ -16,8 +16,9 @@ SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 // Never set in Release. The service refuses dev sign-in in production anyway.
 DEV_LOGIN_EMAIL =
 
-// Google sign-in for iPhone is not set up yet (needs an iOS OAuth client for
-// com.timofeic.gym). Blank hides the Google button.
-GOOGLE_IOS_CLIENT_ID =
-GOOGLE_WEB_CLIENT_ID =
-GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.unset
+// Google sign-in. Client ids are public (they ship inside the app), not secrets.
+// iOS client "Gym iPhone app" for com.timofeic.gym and the web app's client
+// (AUTH_GOOGLE_ID), both in Google Cloud project gym-tracker.
+GOOGLE_IOS_CLIENT_ID = 903695837668-c65vq3ldr9i7nthm1jlq3793uutbo74l.apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_ID = 903695837668-aunam6fbg8bl6bceuvtc3dlccm0aph9u.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.903695837668-c65vq3ldr9i7nthm1jlq3793uutbo74l

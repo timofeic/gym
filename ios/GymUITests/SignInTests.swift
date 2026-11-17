@@ -31,6 +31,20 @@ final class SignInTests: XCTestCase {
         add(screenshot)
     }
 
+    /// The Google client ids come from the committed config (App.xcconfig,
+    /// and Release.xcconfig for TestFlight), so the button must show.
+    func testGoogleButtonShowsUnderApple() {
+        let google = app.buttons["signInGoogle"]
+        XCTAssertTrue(google.waitForExistence(timeout: 10), "Sign in with Google should show")
+        XCTAssertTrue(google.isHittable)
+        XCTAssertTrue(google.label.contains("Google"), "Label was \(google.label)")
+        XCTAssertLessThan(appleButton.frame.maxY, google.frame.minY, "Apple should sit above Google")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Sign-in screen with Google"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     func testDevSignInStillLandsOnOverview() {
         XCTAssertTrue(appleButton.waitForExistence(timeout: 10))
         let dev = app.buttons["signInDev"]
@@ -55,11 +69,15 @@ final class SignInTests: XCTestCase {
     func testTappingAppleOpensApplesSheetOrExplains() {
         XCTAssertTrue(appleButton.waitForExistence(timeout: 10))
         appleButton.tap()
+        // Apple's sheet, or on a simulator with no Apple Account its
+        // "Sign in to your Apple Account" alert, is drawn by the system.
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let systemUI = springboard.alerts.matching(NSPredicate(format: "label CONTAINS[c] 'Apple'")).firstMatch
         let appleSheet = springboard.otherElements.matching(NSPredicate(format: "label CONTAINS[c] 'Apple'")).firstMatch
         let message = app.staticTexts["signInError"]
-        let deadline = Date().addingTimeInterval(15)
-        while Date() < deadline, !message.exists, !appleSheet.exists { usleep(250_000) }
-        XCTAssertTrue(message.exists || appleSheet.exists, "Expected Apple's sheet or an explanation")
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline, !message.exists, !appleSheet.exists, !systemUI.exists { usleep(250_000) }
+        XCTAssertTrue(message.exists || appleSheet.exists || systemUI.exists, "Expected Apple's sheet or an explanation")
+        if systemUI.exists, systemUI.buttons["Close"].exists { systemUI.buttons["Close"].tap() }
     }
 }
