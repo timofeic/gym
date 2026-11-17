@@ -19,8 +19,8 @@ mode.
 1. In Claude, go to **Customize > Connectors**, then **Add > Add custom connector**.
 2. Name: `Gym`. URL: `https://gym-overload.vercel.app/api/mcp`. Click **Continue**, keep
    the options marked **Detected**, then **Add**.
-3. Click **Connect**. A Gym page opens: sign in with Google (the same account
-   you use for Gym), then press **Allow**.
+3. Click **Connect**. A Gym page opens: sign in the way you do in the Gym app
+   (Google, or Apple once it's switched on, see below), then press **Allow**.
 4. In a chat, ask "What did I do last Monday?" or "Log bench, 3 sets of 8 at 60".
    Claude asks before running a tool that saves anything.
 
@@ -62,12 +62,26 @@ Gym app also cancels the keys on our side.
 | `weekly_sets_per_muscle` | Sets per category since Sunday, no Upper/Lower/Push/Pull | read only |
 | `suggest_next_weight` | +2.5 kg after hitting target reps twice running | read only |
 | `list_categories` | Categories | read only |
-| `log_workout` | Save a workout. Sets 1 to 10, reps 1 to 100, weight 0 to 500 kg | write |
+| `log_workout` | Log exercises into that day's workout (a new one only if there isn't one, or if asked). Sets 1 to 10, reps 1 to 100, weight 0 to 500 kg | write |
+| `update_workout_entry` | Change one logged exercise: exercise, sets, reps or weight | write, destructive |
+| `remove_workout_entry` | Remove one logged exercise (and the workout, if it was the last) | write, destructive |
+| `change_workout_date` | Move a workout to another day | write, destructive |
+| `merge_workouts` | Combine workouts into one, at the earliest one's time | write, destructive |
+| `delete_workout` | Delete a whole workout | write, destructive |
 | `add_exercise` | New exercise, unique name | write |
 | `update_exercise` | Change one. Built-ins get a personal copy | write, destructive |
 | `add_category` | New category (shared by everyone) | write |
 
-Nothing can be deleted through the connector. The rules are the same as the app
+**One gym visit is one workout.** `log_workout` adds to the newest workout on
+that day in the person's timezone, so Claude can log each exercise or set as
+it happens. Another set of the same exercise at the same reps and weight adds
+to that line's sets (up to 10). `new_workout: true` starts a separate one, and
+`workout_id` adds to a chosen one. The read tools show workout and entry ids
+(in the text too, since some clients only pass the text to the model), which
+the editing tools take. Every editing tool checks the workout belongs to the
+signed-in person; someone else's ids get "Couldn't find that workout".
+
+Exercises and categories can't be deleted through the connector. The rules are the same as the app
 and the voice coach (`gym-app/lib/mcp/logic.ts` is a port of
 `agent/gym_agent/logic.py`; keep them in step).
 
@@ -107,6 +121,30 @@ Claude / ChatGPT ──► POST /api/mcp (Bearer gym_at_…)
 - **Timezone**: the consent page saves the browser's timezone on the
   connection. Tools take an optional `timezone` to override it.
 
+### Sign in with Apple on the consent page
+
+The consent page offers Google, and Apple once these are set on Vercel:
+
+- `AUTH_APPLE_ID`: a Services ID (eg `com.timofeic.gym.web`).
+- `AUTH_APPLE_SECRET`: a client secret JWT. Make it with
+  `node gym-app/scripts/apple-client-secret.mjs <team id> <key id> <AuthKey.p8> <services id>`.
+  It lasts 6 months; make a new one before it runs out.
+
+Setting up in the Apple Developer site (Certificates, IDs & Profiles):
+
+1. **Identifiers > + > Services IDs**: create one, tick **Sign in with Apple**,
+   **Configure**: primary App ID `com.timofeic.gym` (so it's in the same group
+   as the iPhone app), domain `gym-overload.vercel.app`, return URL
+   `https://gym-overload.vercel.app/api/auth/callback/apple`.
+2. **Keys > +**: tick **Sign in with Apple**, pick the same primary App ID,
+   download the `.p8` (once only) and note the Key ID.
+
+Apple gives a person the same user id across apps in one developer team, and
+the iPhone app stores it the same way Auth.js does (`next_auth.accounts`,
+provider `apple`), so someone who joined with Apple on the iPhone lands in the
+same account. Apple only works over https (it returns with a cross-site POST,
+so the state, nonce and callback cookies are `SameSite=None; Secure`).
+
 ### Connected apps API (for the iPhone app)
 
 Bearer: the iPhone app's access token from `/api/native/session`.
@@ -119,6 +157,7 @@ Bearer: the iPhone app's access token from `/api/native/session`.
 1. Apply `gym-app/supabase/migrations/20261114_connector_oauth.sql` to the
    production Supabase project.
 2. Vercel env: `AUTH_SECRET` (already set) signs the consent form. Optional:
+   `AUTH_APPLE_ID` and `AUTH_APPLE_SECRET` to offer Apple (above). Also optional:
    `CONNECTOR_ORIGIN` to pin the issuer to one domain (otherwise it's the host
    the request came to), `NEXT_PUBLIC_PRIVACY_CONTACT` for the privacy page.
 3. Deploy. The production Google OAuth client already allows the site's

@@ -1,6 +1,6 @@
 import * as logic from './logic'
 import type { Exercise, LocalDate } from './logic'
-import type { GymRepo } from './repo'
+import type { Entry, GymRepo } from './repo'
 
 // What the connector can do. Framework free, so tests call it with a real or
 // fake repo. Mirrors agent/gym_agent/tools.py. Each method returns a short
@@ -10,6 +10,12 @@ export type ToolResult = { text: string; data?: Record<string, unknown>; isError
 
 const ok = (text: string, data?: Record<string, unknown>): ToolResult => ({ text, data })
 const problem = (text: string): ToolResult => ({ text, isError: true })
+
+function entryIssues(sets: number, reps: number, weight: number) {
+  const issues = logic.validateEntry(sets, reps, weight)
+  if (!Number.isInteger(sets) || !Number.isInteger(reps)) issues.push('sets and reps must be whole numbers')
+  return issues
+}
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -94,7 +100,7 @@ export class GymTools {
     const rows = await this.repo.recentWorkouts(n)
     if (!rows.length) return ok('No workouts logged yet.', { workouts: [] })
     const now = this.now()
-    return ok(`${rows.map(w => logic.summariseWorkout(w, tz, now)).join('\n')}\n${this.dateLine(tz)}`, {
+    return ok(`${rows.map(w => this.listing(w, tz, now)).join('\n')}\n${this.dateLine(tz)}`, {
       workouts: rows.map(w => this.workoutData(w, tz)),
     })
   }
@@ -108,7 +114,7 @@ export class GymTools {
     const label = logic.friendlyDate(start, tz, this.now())
     if (!rows.length) return ok(`No workout on ${label}. ${this.dateLine(tz)}`, { date: logic.isoDate(d), workouts: [] })
     const now = this.now()
-    return ok(`${rows.map(w => logic.summariseWorkout(w, tz, now)).join('\n')}`, {
+    return ok(`${rows.map(w => this.listing(w, tz, now)).join('\n')}`, {
       date: logic.isoDate(d),
       workouts: rows.map(w => this.workoutData(w, tz)),
     })
@@ -119,9 +125,21 @@ export class GymTools {
       id: w.id,
       date: logic.isoDate(logic.localDate(new Date(w.date), tz)),
       exercises: (w.workout_exercises ?? []).map(we => ({
-        name: we.exercises?.name ?? null, sets: we.sets, reps: we.reps, weightKg: Number(we.weight),
+        entryId: we.id, name: we.exercises?.name ?? null, sets: we.sets, reps: we.reps, weightKg: Number(we.weight),
       })),
     }
+  }
+
+  /** One workout as text, with the ids the editing tools need on a second line. */
+  private listing(w: logic.WorkoutRow, tz: string, now: Date) {
+    const ids = (w.workout_exercises ?? []).map(we => `${we.exercises?.name ?? 'entry'} ${we.id}`).join(', ')
+    return `${logic.summariseWorkout(w, tz, now)}\n  ids: workout ${w.id}${ids ? `; entries: ${ids}` : ''}`
+  }
+
+  /** The workout if it exists and belongs to this person. */
+  private async ownWorkout(id: string) {
+    const w = await this.repo.getWorkout(String(id ?? ''))
+    return w && (!w.user_id || w.user_id === this.repo.userId) ? w : null
   }
 
   async exerciseHistory(exercise: string, timezone?: string): Promise<ToolResult> {
@@ -180,12 +198,11 @@ export class GymTools {
 
   // Writing ------------------------------------------------------------------
 
-  async logWorkout(entries: LogEntryInput[], day?: string, timezone?: string): Promise<ToolResult> {
-    if (!entries?.length) return problem('Nothing to log.')
-    const tz = this.zone(timezone)
+  /** Checks entries and turns names into exercises. Saves nothing. */
+  private async checkEntries(entries: LogEntryInput[]) {
     const visible = await this.visible()
-    const rows: { exercise_id: string; sets: number; reps: number; weight: number }[] = []
-    const said: string[] = []
+    const rows: Entry[] = []
+    const names: string[] = []
     const problems: string[] = []
     for (const e of entries) {
       const m = logic.matchExercise(String(e.exercise ?? ''), visible)
@@ -196,30 +213,172 @@ export class GymTools {
         continue
       }
       const sets = Number(e.sets), reps = Number(e.reps), weight = Number(e.weight ?? 0)
-      const issues = logic.validateEntry(sets, reps, weight)
-      if (!Number.isInteger(sets) || !Number.isInteger(reps)) issues.push('sets and reps must be whole numbers')
+      const issues = entryIssues(sets, reps, weight)
       if (issues.length) {
         problems.push(`${m.exercise.name}: ${issues.join('; ')}`)
         continue
       }
       rows.push({ exercise_id: m.exercise.id, sets, reps, weight })
-      said.push(logic.describeEntry(m.exercise.name, sets, reps, weight))
+      names.push(m.exercise.name)
     }
-    if (problems.length) return problem(`Not saved. ${problems.join('. ')}.`)
+    return { rows, names, problems }
+  }
 
+  /**
+   * Logs exercises. By default they go into the person's workout for that day
+   * if there is one, so logging set by set through one gym visit stays one
+   * workout. `newWorkout` starts a separate one; `workoutId` picks one.
+   */
+  async logWorkout(
+    entries: LogEntryInput[], day?: string, timezone?: string,
+    opts: { workoutId?: string; newWorkout?: boolean } = {},
+  ): Promise<ToolResult> {
+    if (!entries?.length) return problem('Nothing to log.')
+    const tz = this.zone(timezone)
+    const { rows, names, problems } = await this.checkEntries(entries)
+    if (problems.length) return problem(`Not saved. ${problems.join('. ')}.`)
+    const said = rows.map((r, i) => logic.describeEntry(names[i], r.sets, r.reps, r.weight))
+    const now = this.now()
+
+    let target: logic.WorkoutRow | null = null
     let when: Date | undefined
-    if (day?.trim()) {
-      const d = this.resolveDay(day, tz)
-      if (!d) return problem('Not saved. Give the date as year-month-day.')
-      const today = logic.localDate(this.now(), tz)
-      if (logic.isoDate(d) !== logic.isoDate(today)) {
-        // Midday local time keeps it on the right day in every view.
-        when = logic.zonedTime(d.year, d.month, d.day, tz, 12)
+    if (opts.workoutId) {
+      target = await this.ownWorkout(opts.workoutId)
+      if (!target) return problem("Not saved. Couldn't find that workout. Use recent_workouts or workouts_on_date to get its id.")
+    } else {
+      const today = logic.localDate(now, tz)
+      let d = today
+      if (day?.trim()) {
+        const r = this.resolveDay(day, tz)
+        if (!r) return problem('Not saved. Give the date as year-month-day.')
+        d = r
+      }
+      // Midday local time keeps a past day on the right day in every view.
+      if (logic.isoDate(d) !== logic.isoDate(today)) when = logic.zonedTime(d.year, d.month, d.day, tz, 12)
+      if (!opts.newWorkout) {
+        const [start, end] = logic.dayBounds(d, tz)
+        target = (await this.repo.workoutsBetween(start, end))[0] ?? null // newest that day
       }
     }
-    const workout = await this.repo.logWorkout(rows, when)
-    const dateLabel = logic.friendlyDate(new Date(workout.date), tz, this.now())
-    return ok(`Saved for ${dateLabel}: ${said.join('; ')}.`, { workoutId: workout.id, date: logic.isoDate(logic.localDate(new Date(workout.date), tz)) })
+
+    if (!target) {
+      const workout = await this.repo.logWorkout(rows, when)
+      const dateLabel = logic.friendlyDate(new Date(workout.date), tz, now)
+      return ok(`Saved a new workout for ${dateLabel}: ${said.join('; ')}.\n  ids: workout ${workout.id}`, {
+        workoutId: workout.id, date: logic.isoDate(logic.localDate(new Date(workout.date), tz)), addedToExisting: false,
+      })
+    }
+
+    // Same exercise, reps and weight as a line already there: count it as more sets.
+    const lines = (target.workout_exercises ?? []).map(we => ({ id: we.id!, exercise_id: we.exercise_id ?? we.exercises?.id, sets: we.sets, reps: we.reps, weight: Number(we.weight) }))
+    const inserts: Entry[] = []
+    for (const r of rows) {
+      const same = lines.find(l => l.exercise_id === r.exercise_id && l.reps === r.reps && l.weight === r.weight && l.sets + r.sets <= logic.LIMITS.sets[1])
+      if (same) {
+        same.sets += r.sets
+        await this.repo.updateEntry(same.id, { sets: same.sets })
+      } else {
+        const fresh = inserts.find(l => l.exercise_id === r.exercise_id && l.reps === r.reps && l.weight === r.weight && l.sets + r.sets <= logic.LIMITS.sets[1])
+        if (fresh) fresh.sets += r.sets
+        else inserts.push({ ...r })
+      }
+    }
+    if (inserts.length) await this.repo.addEntries(target.id, inserts)
+    const updated = (await this.repo.getWorkout(target.id)) ?? target
+    const label = logic.friendlyDate(new Date(updated.date), tz, now)
+    const where = label.startsWith('Today') ? `today's workout ${label.slice(5)}` : `the workout on ${label}`
+    return ok(`Added to ${where}: ${said.join('; ')}. It now has ${this.entriesText(updated)}.\n${this.listing(updated, tz, now).split('\n')[1]}`, {
+      workoutId: updated.id, date: logic.isoDate(logic.localDate(new Date(updated.date), tz)), addedToExisting: true,
+      workout: this.workoutData(updated, tz),
+    })
+  }
+
+  private entriesText(w: logic.WorkoutRow) {
+    const parts = (w.workout_exercises ?? []).map(we => logic.describeEntry(we.exercises?.name ?? 'an exercise', we.sets, we.reps, we.weight))
+    return parts.length ? parts.join('; ') : 'nothing in it'
+  }
+
+  async updateEntry(input: { entryId: string; exercise?: string; sets?: number; reps?: number; weight?: number }): Promise<ToolResult> {
+    const entry = await this.repo.getEntry(String(input.entryId ?? ''))
+    if (!entry || (entry.workouts && entry.workouts.user_id !== this.repo.userId)) {
+      return problem("Couldn't find that entry. Use workouts_on_date or recent_workouts to get its id.")
+    }
+    const patch: Partial<Entry> = {}
+    let name: string | undefined
+    if (input.exercise?.trim()) {
+      const { ex, why } = await this.resolve(input.exercise)
+      if (!ex) return problem(`Not changed. ${why}`)
+      patch.exercise_id = ex.id
+      name = ex.name
+    }
+    if (input.sets !== undefined) patch.sets = Number(input.sets)
+    if (input.reps !== undefined) patch.reps = Number(input.reps)
+    if (input.weight !== undefined) patch.weight = Number(input.weight)
+    if (!Object.keys(patch).length) return problem('Nothing to change.')
+    const merged = { sets: patch.sets ?? entry.sets, reps: patch.reps ?? entry.reps, weight: patch.weight ?? Number(entry.weight) }
+    const issues = entryIssues(merged.sets, merged.reps, merged.weight)
+    if (issues.length) return problem(`Not changed. ${issues.join('; ')}.`)
+    await this.repo.updateEntry(entry.id, patch)
+    if (!name) {
+      const w = await this.repo.getWorkout(entry.workout_id)
+      name = w?.workout_exercises?.find(we => we.id === entry.id)?.exercises?.name ?? 'That entry'
+    }
+    const text = logic.describeEntry(name, merged.sets, merged.reps, merged.weight)
+    return ok(`Changed to ${text}.`, { entryId: entry.id, workoutId: entry.workout_id, name, sets: merged.sets, reps: merged.reps, weightKg: merged.weight })
+  }
+
+  async removeEntry(entryId: string): Promise<ToolResult> {
+    const entry = await this.repo.getEntry(String(entryId ?? ''))
+    if (!entry || (entry.workouts && entry.workouts.user_id !== this.repo.userId)) {
+      return problem("Couldn't find that entry. Use workouts_on_date or recent_workouts to get its id.")
+    }
+    const before = await this.repo.getWorkout(entry.workout_id)
+    const line = before?.workout_exercises?.find(we => we.id === entry.id)
+    const text = logic.describeEntry(line?.exercises?.name ?? 'an exercise', entry.sets, entry.reps, entry.weight)
+    await this.repo.deleteEntry(entry.id)
+    const after = await this.repo.getWorkout(entry.workout_id)
+    if (after && !(after.workout_exercises ?? []).length) {
+      await this.repo.deleteWorkout(after.id)
+      return ok(`Removed ${text}. That was the only thing in the workout, so the workout is gone too.`, { workoutId: entry.workout_id, workoutDeleted: true })
+    }
+    return ok(`Removed ${text}.${after ? ` The workout now has ${this.entriesText(after)}.` : ''}`, { workoutId: entry.workout_id, workoutDeleted: false })
+  }
+
+  async changeWorkoutDate(workoutId: string, day: string, timezone?: string): Promise<ToolResult> {
+    const tz = this.zone(timezone)
+    const w = await this.ownWorkout(workoutId)
+    if (!w) return problem("Couldn't find that workout. Use recent_workouts or workouts_on_date to get its id.")
+    const d = this.resolveDay(day, tz)
+    if (!d) return problem(`Not changed. Give the date as year-month-day, like 2026-11-09, or a day name. ${this.dateLine(tz)}`)
+    const now = this.now()
+    const when = logic.isoDate(d) === logic.isoDate(logic.localDate(now, tz)) ? now : logic.zonedTime(d.year, d.month, d.day, tz, 12)
+    await this.repo.setWorkoutDate(w.id, when)
+    return ok(`Moved the workout (${this.entriesText(w)}) to ${logic.friendlyDate(when, tz, now)}.`, { workoutId: w.id, date: logic.isoDate(d) })
+  }
+
+  async deleteWorkout(workoutId: string, timezone?: string): Promise<ToolResult> {
+    const tz = this.zone(timezone)
+    const w = await this.ownWorkout(workoutId)
+    if (!w) return problem("Couldn't find that workout. Use recent_workouts or workouts_on_date to get its id.")
+    await this.repo.deleteWorkout(w.id)
+    return ok(`Deleted the workout from ${logic.friendlyDate(new Date(w.date), tz, this.now())}: ${this.entriesText(w)}.`, { workoutId: w.id, deleted: true })
+  }
+
+  async mergeWorkouts(workoutIds: string[], timezone?: string): Promise<ToolResult> {
+    const tz = this.zone(timezone)
+    const ids = [...new Set((workoutIds ?? []).map(String))]
+    const found = await Promise.all(ids.map(id => this.ownWorkout(id)))
+    if (found.some(w => !w)) return problem("Couldn't find one of those workouts. Use recent_workouts or workouts_on_date to get their ids.")
+    if (ids.length < 2) return problem('Give two or more different workouts to merge.')
+    const workouts = (found as logic.WorkoutRow[]).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    const [keep, ...rest] = workouts // the earliest one: when the visit started
+    await this.repo.moveEntries(rest.map(w => w.id), keep.id)
+    for (const w of rest) await this.repo.deleteWorkout(w.id)
+    const merged = (await this.repo.getWorkout(keep.id))!
+    const now = this.now()
+    return ok(`Merged ${workouts.length} workouts into one on ${logic.friendlyDate(new Date(merged.date), tz, now)}: ${this.entriesText(merged)}.\n${this.listing(merged, tz, now).split('\n')[1]}`, {
+      workoutId: merged.id, mergedFrom: rest.map(w => w.id), workout: this.workoutData(merged, tz),
+    })
   }
 
   private async knownCategories(wanted: string[]): Promise<{ cats: string[]; unknown: string[] }> {

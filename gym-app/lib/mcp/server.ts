@@ -8,14 +8,19 @@ import type { GymTools, ToolResult } from './tools'
 export const SERVER_INFO = { name: 'gym', title: 'Gym', version: '1.0.0' }
 
 const INSTRUCTIONS = `Gym is a workout log. Weights are kilograms.
-Use it to answer questions about the person's own workouts and to log new ones.
+Use it to answer questions about the person's own workouts, and to log and fix them.
+One gym visit is one workout. log_workout adds to the person's workout for that day if there is one, so log each exercise or set as they go; don't start a new workout unless they say it's a separate session.
 Before logging, read the entry back in one short sentence. Exercise names can be loose ("bench" for "Bench Press").
+To fix a mistake, get ids from workouts_on_date or recent_workouts, then use update_workout_entry, remove_workout_entry, change_workout_date, merge_workouts or delete_workout. Say what will change and get a yes before removing, deleting or merging.
 Dates are in the person's timezone; tools accept YYYY-MM-DD or day names like "monday" (the most recent one before today).`
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+const CHANGE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false }
 
 const timezone = z.string().optional().describe('IANA timezone, eg Australia/Melbourne. Leave out to use the one saved when the person connected.')
+const workoutId = z.string().min(1).describe('Workout id from workouts_on_date or recent_workouts')
+const entryId = z.string().min(1).describe('Entry id (one exercise line in a workout) from workouts_on_date or recent_workouts')
 const exercise = z.string().min(1).describe('Exercise name. Loose names work, eg "bench" or "squats".')
 
 function reply(r: ToolResult) {
@@ -85,8 +90,8 @@ export function createGymServer(tools: GymTools): McpServer {
   }, async () => reply(await tools.listCategories()))
 
   server.registerTool('log_workout', {
-    title: 'Log a workout',
-    description: 'Saves a new workout with one or more exercises. Limits: sets 1 to 10, reps 1 to 100, weight 0 to 500 kg. Nothing is saved if any entry is invalid or an exercise name is unclear.',
+    title: 'Log exercises',
+    description: "Logs one or more exercises. If the person already has a workout on that day, they're added to it (the newest one that day), so one gym visit stays one workout: call this after each exercise or set. Another set of the same exercise at the same reps and weight adds to that line's sets. Set new_workout only when the person says it's a separate session. Limits: sets 1 to 10, reps 1 to 100, weight 0 to 500 kg. Nothing is saved if any entry is invalid or an exercise name is unclear.",
     inputSchema: {
       entries: z.array(z.object({
         exercise,
@@ -94,11 +99,62 @@ export function createGymServer(tools: GymTools): McpServer {
         reps: z.number().int().describe('1 to 100'),
         weight: z.number().describe('Kilograms, 0 to 500. 0 for bodyweight.'),
       })).min(1).max(20),
-      date: z.string().optional().describe('Leave out for now. Otherwise YYYY-MM-DD, "yesterday" or a day name.'),
+      date: z.string().optional().describe('Leave out for today. Otherwise YYYY-MM-DD, "yesterday" or a day name.'),
+      workout_id: z.string().optional().describe('Add to this workout instead (id from workouts_on_date or recent_workouts). Overrides date.'),
+      new_workout: z.boolean().optional().describe('true starts a separate workout even if there is one that day. Only when the person asks.'),
       timezone,
     },
-    annotations: { title: 'Log a workout', ...ADD },
-  }, async ({ entries, date, timezone }) => reply(await tools.logWorkout(entries, date, timezone)))
+    annotations: { title: 'Log exercises', ...ADD },
+  }, async ({ entries, date, workout_id, new_workout, timezone }) =>
+    reply(await tools.logWorkout(entries, date, timezone, { workoutId: workout_id, newWorkout: new_workout })))
+
+  server.registerTool('update_workout_entry', {
+    title: 'Change a logged exercise',
+    description: 'Changes one exercise line in a workout: the exercise, sets, reps or weight. Same limits as logging.',
+    inputSchema: {
+      entry_id: entryId,
+      exercise: z.string().optional().describe('A different exercise, if it was the wrong one'),
+      sets: z.number().int().optional(),
+      reps: z.number().int().optional(),
+      weight: z.number().optional().describe('Kilograms'),
+    },
+    annotations: { title: 'Change a logged exercise', ...CHANGE },
+  }, async ({ entry_id, ...rest }) => reply(await tools.updateEntry({ entryId: entry_id, ...rest })))
+
+  server.registerTool('remove_workout_entry', {
+    title: 'Remove a logged exercise',
+    description: 'Removes one exercise line from a workout. If it was the only one, the workout is removed too. Confirm with the person first.',
+    inputSchema: { entry_id: entryId },
+    annotations: { title: 'Remove a logged exercise', ...CHANGE },
+  }, async ({ entry_id }) => reply(await tools.removeEntry(entry_id)))
+
+  server.registerTool('change_workout_date', {
+    title: 'Change a workout\'s date',
+    description: 'Moves a whole workout to another day.',
+    inputSchema: {
+      workout_id: workoutId,
+      date: z.string().min(1).describe('YYYY-MM-DD, "today", "yesterday" or a day name'),
+      timezone,
+    },
+    annotations: { title: 'Change a workout\'s date', ...CHANGE },
+  }, async ({ workout_id, date, timezone }) => reply(await tools.changeWorkoutDate(workout_id, date, timezone)))
+
+  server.registerTool('merge_workouts', {
+    title: 'Merge workouts',
+    description: 'Combines two or more workouts into one, kept at the earliest one\'s time. Use when one gym visit was logged as several workouts. Confirm with the person first.',
+    inputSchema: {
+      workout_ids: z.array(z.string().min(1)).min(2).max(20).describe('Workout ids from workouts_on_date or recent_workouts'),
+      timezone,
+    },
+    annotations: { title: 'Merge workouts', ...CHANGE },
+  }, async ({ workout_ids, timezone }) => reply(await tools.mergeWorkouts(workout_ids, timezone)))
+
+  server.registerTool('delete_workout', {
+    title: 'Delete a workout',
+    description: 'Deletes a whole workout and everything in it. This cannot be undone. Read back what is in it and get a clear yes first.',
+    inputSchema: { workout_id: workoutId, timezone },
+    annotations: { title: 'Delete a workout', ...CHANGE },
+  }, async ({ workout_id, timezone }) => reply(await tools.deleteWorkout(workout_id, timezone)))
 
   server.registerTool('add_exercise', {
     title: 'Add an exercise',

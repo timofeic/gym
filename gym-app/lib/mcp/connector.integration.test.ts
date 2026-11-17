@@ -291,8 +291,9 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
       const tools = body.result.tools as { name: string; title?: string; annotations: Record<string, unknown> }[]
       const byName = Object.fromEntries(tools.map(t => [t.name, t]))
       expect(Object.keys(byName).sort()).toEqual([
-        'add_category', 'add_exercise', 'exercise_history', 'list_categories', 'list_exercises', 'log_workout',
-        'recent_workouts', 'suggest_next_weight', 'update_exercise', 'weekly_sets_per_muscle', 'workouts_on_date',
+        'add_category', 'add_exercise', 'change_workout_date', 'delete_workout', 'exercise_history', 'list_categories',
+        'list_exercises', 'log_workout', 'merge_workouts', 'recent_workouts', 'remove_workout_entry', 'suggest_next_weight',
+        'update_exercise', 'update_workout_entry', 'weekly_sets_per_muscle', 'workouts_on_date',
       ])
       for (const t of tools) {
         expect(t.title, t.name).toBeTruthy()
@@ -307,7 +308,9 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
       for (const n of ['log_workout', 'add_exercise', 'add_category']) {
         expect(byName[n].annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false })
       }
-      expect(byName.update_exercise.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
+      for (const n of ['update_exercise', 'update_workout_entry', 'remove_workout_entry', 'change_workout_date', 'delete_workout', 'merge_workouts']) {
+        expect(byName[n].annotations, n).toMatchObject({ readOnlyHint: false, destructiveHint: true })
+      }
     })
 
     it('starts empty for a new person', async () => {
@@ -350,10 +353,10 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
     it('logs "bench 3 sets of 8 at 60" with a loose name', async () => {
       const r = await call(token, 'log_workout', { entries: [{ exercise: 'bench', sets: 3, reps: 8, weight: 60 }] })
       expect(r.isError).toBe(false)
-      expect(r.text).toMatch(/^Saved for Today \(\d{4}-\d{2}-\d{2}\): Bench Press, 3 sets of 8 at 60 kg\.$/)
+      expect(r.text).toMatch(/^Saved a new workout for Today \(\d{4}-\d{2}-\d{2}\): Bench Press, 3 sets of 8 at 60 kg\.\n  ids: workout [0-9a-f-]{36}$/)
       const recent = await call(token, 'recent_workouts', { limit: 1 })
       expect(recent.text).toContain('Bench Press, 3 sets of 8 at 60 kg')
-      expect(recent.data.workouts[0].exercises).toEqual([{ name: 'Bench Press', sets: 3, reps: 8, weightKg: 60 }])
+      expect(recent.data.workouts[0].exercises).toEqual([{ entryId: expect.any(String), name: 'Bench Press', sets: 3, reps: 8, weightKg: 60 }])
     })
 
     it('logs on a past day and finds it by day name in the person’s timezone', async () => {
@@ -437,6 +440,135 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
       const ohp = list.data.exercises.find((e: { name: string }) => e.name === 'Overhead Press')
       expect(ohp.kind).toBe('built-in') // Alice's copy stays hers
       expect((await call(token, 'recent_workouts', { limit: 10 })).data.workouts.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('one gym visit is one workout', () => {
+    let gina: { id: string }
+    let token: string
+    const today = async () => (await call(token, 'workouts_on_date', { date: 'today' })).data.workouts as {
+      id: string; date: string; exercises: { entryId: string; name: string; sets: number; reps: number; weightKg: number }[]
+    }[]
+
+    beforeAll(async () => {
+      gina = await newUser('gina')
+      token = (await connect(gina.id)).access_token
+    })
+
+    it('logging twice on the same day adds to the same workout', async () => {
+      const first = await call(token, 'log_workout', { entries: [{ exercise: 'bench', sets: 3, reps: 8, weight: 60 }] })
+      expect(first.isError).toBe(false)
+      const second = await call(token, 'log_workout', { entries: [{ exercise: 'barbell row', sets: 3, reps: 10, weight: 50 }] })
+      expect(second.isError).toBe(false)
+      expect(second.data.workoutId).toBe(first.data.workoutId)
+      expect(second.data.addedToExisting).toBe(true)
+      expect(second.text).toMatch(/^Added to today's workout/)
+      const workouts = await today()
+      expect(workouts).toHaveLength(1)
+      expect(workouts[0].exercises.map(e => e.name).sort()).toEqual(['Barbell Row', 'Bench Press'])
+    })
+
+    it('one more set of the same thing at the same weight adds a set', async () => {
+      const r = await call(token, 'log_workout', { entries: [{ exercise: 'bench press', sets: 1, reps: 8, weight: 60 }] })
+      expect(r.isError).toBe(false)
+      const [w] = await today()
+      expect(w.exercises.filter(e => e.name === 'Bench Press')).toEqual([expect.objectContaining({ sets: 4, reps: 8, weightKg: 60 })])
+      // A different weight is its own line.
+      await call(token, 'log_workout', { entries: [{ exercise: 'bench press', sets: 1, reps: 6, weight: 65 }] })
+      expect((await today())[0].exercises.filter(e => e.name === 'Bench Press')).toHaveLength(2)
+    })
+
+    it('starts a separate workout only when asked', async () => {
+      const r = await call(token, 'log_workout', { entries: [{ exercise: 'squat', sets: 3, reps: 5, weight: 100 }], new_workout: true })
+      expect(r.isError).toBe(false)
+      expect(r.data.addedToExisting).toBe(false)
+      const workouts = await today()
+      expect(workouts).toHaveLength(2)
+      // The next log goes to the newest one.
+      const next = await call(token, 'log_workout', { entries: [{ exercise: 'deadlift', sets: 1, reps: 5, weight: 140 }] })
+      expect(next.data.workoutId).toBe(r.data.workoutId)
+      // Merge them back into one.
+      const merged = await call(token, 'merge_workouts', { workout_ids: workouts.map(w => w.id) })
+      expect(merged.isError).toBe(false)
+      const after = await today()
+      expect(after).toHaveLength(1)
+      expect(after[0].exercises.map(e => e.name)).toEqual(expect.arrayContaining(['Bench Press', 'Barbell Row', 'Back Squat', 'Deadlift']))
+    })
+
+    it('adds to a chosen workout by id, even on another day', async () => {
+      const past = await call(token, 'log_workout', { entries: [{ exercise: 'squat', sets: 5, reps: 5, weight: 90 }], date: '2026-01-07' })
+      const r = await call(token, 'log_workout', { entries: [{ exercise: 'overhead press', sets: 3, reps: 10, weight: 20 }], workout_id: past.data.workoutId })
+      expect(r.isError).toBe(false)
+      expect(r.data.workoutId).toBe(past.data.workoutId)
+      const day = await call(token, 'workouts_on_date', { date: '2026-01-07' })
+      expect(day.data.workouts[0].exercises).toHaveLength(2)
+    })
+
+    it('changes an entry, checking the limits', async () => {
+      const [w] = await today()
+      const row = w.exercises.find(e => e.name === 'Barbell Row')!
+      const r = await call(token, 'update_workout_entry', { entry_id: row.entryId, sets: 4, weight: 52.5 })
+      expect(r.isError).toBe(false)
+      expect(r.text).toContain('Barbell Row, 4 sets of 10 at 52.5 kg')
+      const bad = await call(token, 'update_workout_entry', { entry_id: row.entryId, reps: 0 })
+      expect(bad.isError).toBe(true)
+      const swapped = await call(token, 'update_workout_entry', { entry_id: row.entryId, exercise: 'curl' })
+      expect(swapped.isError).toBe(false)
+      expect((await today())[0].exercises.find(e => e.entryId === row.entryId)).toMatchObject({ name: 'Bicep Curl', sets: 4, reps: 10, weightKg: 52.5 })
+    })
+
+    it('removes an entry, and removing the last one removes the workout', async () => {
+      const [w] = await today()
+      const target = w.exercises.find(e => e.name === 'Deadlift')!
+      const r = await call(token, 'remove_workout_entry', { entry_id: target.entryId })
+      expect(r.isError).toBe(false)
+      expect((await today())[0].exercises.some(e => e.name === 'Deadlift')).toBe(false)
+      const lone = await call(token, 'log_workout', { entries: [{ exercise: 'plank', sets: 3, reps: 1, weight: 0 }], date: '2026-01-09' })
+      const [entry] = (await call(token, 'workouts_on_date', { date: '2026-01-09' })).data.workouts[0].exercises
+      const gone = await call(token, 'remove_workout_entry', { entry_id: entry.entryId })
+      expect(gone.data.workoutDeleted).toBe(true)
+      expect((await call(token, 'workouts_on_date', { date: '2026-01-09' })).data.workouts).toEqual([])
+      expect(lone.isError).toBe(false)
+    })
+
+    it('moves a workout to another day, then deletes it', async () => {
+      const made = await call(token, 'log_workout', { entries: [{ exercise: 'bench', sets: 3, reps: 8, weight: 50 }], date: '2026-02-02' })
+      const moved = await call(token, 'change_workout_date', { workout_id: made.data.workoutId, date: '2026-02-03' })
+      expect(moved.isError).toBe(false)
+      expect((await call(token, 'workouts_on_date', { date: '2026-02-02' })).data.workouts).toEqual([])
+      expect((await call(token, 'workouts_on_date', { date: '2026-02-03' })).data.workouts[0].id).toBe(made.data.workoutId)
+      expect((await call(token, 'change_workout_date', { workout_id: made.data.workoutId, date: 'someday' })).isError).toBe(true)
+      const del = await call(token, 'delete_workout', { workout_id: made.data.workoutId })
+      expect(del.isError).toBe(false)
+      expect(del.text).toContain('Bench Press')
+      expect((await call(token, 'workouts_on_date', { date: '2026-02-03' })).data.workouts).toEqual([])
+    })
+
+    it("can't touch someone else's workout", async () => {
+      const [w] = await today()
+      const henry = await newUser('henry')
+      const other = (await connect(henry.id)).access_token
+      const entryId = w.exercises[0].entryId
+      for (const [name, args] of [
+        ['update_workout_entry', { entry_id: entryId, sets: 1 }],
+        ['remove_workout_entry', { entry_id: entryId }],
+        ['change_workout_date', { workout_id: w.id, date: '2026-01-01' }],
+        ['delete_workout', { workout_id: w.id }],
+        ['log_workout', { entries: [{ exercise: 'bench', sets: 1, reps: 1, weight: 1 }], workout_id: w.id }],
+        ['merge_workouts', { workout_ids: [w.id, w.id] }],
+      ] as const) {
+        const r = await call(other, name, args)
+        expect(r.isError, name).toBe(true)
+        expect(r.text, name).toMatch(/couldn't find/i)
+      }
+      expect(await today()).toEqual([w])
+    })
+
+    it('shows workout and entry ids in the text, so the model can change them', async () => {
+      const r = await call(token, 'workouts_on_date', { date: 'today' })
+      const [w] = r.data.workouts
+      expect(r.text).toContain(w.id)
+      expect(r.text).toContain(w.exercises[0].entryId)
     })
   })
 

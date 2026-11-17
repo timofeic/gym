@@ -7,7 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 const [base, session] = process.argv.slice(2)
-const cookie = `authjs.session-token=${session}`
+const cookie = `${base.startsWith("https:") ? "__Secure-" : ""}authjs.session-token=${session}`
 const CALLBACK = 'https://claude.ai/api/mcp/auth_callback'
 const log = (...a) => console.log(...a)
 
