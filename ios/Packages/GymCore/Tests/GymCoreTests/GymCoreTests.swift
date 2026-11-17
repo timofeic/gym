@@ -79,6 +79,64 @@ struct LibraryTests {
         #expect(Library.recategorise(["Chest", "Push"], from: "Chest", to: nil) == ["Push"])
         #expect(Library.recategorise(["Chest", "Pecs"], from: "Chest", to: "Pecs") == ["Pecs"])
     }
+
+    // Journey C5: built-ins are shared rows, so renaming a category gives the
+    // person an edited copy instead of leaving the built-in on the old name.
+    @Test func renamingACategoryCopiesBuiltInsAndUpdatesYourOwn() {
+        let row = builtIn("Barbell Row", ["Back", "Pull"])
+        let curl = builtIn("Bicep Curl", ["Arms", "Pull"])
+        let squat = builtIn("Back Squat", ["Legs"])
+        let mine = Exercise(name: "Face Pull", categories: ["Shoulders", "Pull"], userId: me)
+        let plans = Library.planRecategorise([row, curl, squat, mine], from: "Pull", to: "Pulling", userId: me)
+
+        #expect(plans.count == 3, "Back Squat doesn't use Pull, so it's left alone")
+        var copies: [Exercise] = [], updates: [Exercise] = []
+        for p in plans {
+            switch p {
+            case .createCopy(let e): copies.append(e)
+            case .update(let e): updates.append(e)
+            }
+        }
+        #expect(copies.map(\.name) == ["Barbell Row", "Bicep Curl"])
+        #expect(copies.map(\.categories) == [["Back", "Pulling"], ["Arms", "Pulling"]])
+        #expect(copies.allSatisfy { $0.userId == me && !$0.isDefault })
+        #expect(copies.map(\.parentExerciseId) == [row.id, curl.id])
+        #expect(updates == [Exercise(id: mine.id, name: "Face Pull", categories: ["Shoulders", "Pulling"], userId: me)])
+    }
+
+    @Test func deletingACategoryCopiesBuiltInsWithoutIt() {
+        let squat = builtIn("Back Squat", ["Legs", "Lower"])
+        let plans = Library.planRecategorise([squat], from: "Legs", to: nil, userId: me)
+        guard case .createCopy(let copy) = plans.first, plans.count == 1 else {
+            Issue.record("expected one copy"); return
+        }
+        #expect(copy.categories == ["Lower"] && copy.parentExerciseId == squat.id)
+    }
+
+    @Test func anEditedCopyIsUpdatedNotCopiedAgain() {
+        let row = builtIn("Barbell Row", ["Back", "Pull"])
+        let copy = Exercise(name: "Barbell Row", weight: 70, categories: ["Back", "Pull"], userId: me, parentExerciseId: row.id)
+        // The library a person sees already hides the built-in their copy replaced.
+        let plans = Library.planRecategorise(Library.visible([row, copy], for: me), from: "Pull", to: "Pulling", userId: me)
+        var expected = copy; expected.categories = ["Back", "Pulling"]
+        #expect(plans == [.update(expected)])
+    }
+
+    // Past workouts point at the built-in, so their categories come from the
+    // person's current version of that exercise. Keeps Progress chips and
+    // weekly sets in step with a rename.
+    @Test func historyUsesTheCategoriesOfYourCurrentVersion() {
+        let squat = builtIn("Back Squat", ["Legs"])
+        let copy = Exercise(name: "Back Squat", categories: ["Quads"], userId: me, parentExerciseId: squat.id)
+        let gone = UUID()
+        let w = Workout(date: Date(), entries: [
+            WorkoutEntry(exerciseId: squat.id, name: "Back Squat", categories: ["Legs"], sets: 3, reps: 5, weight: 100),
+            WorkoutEntry(exerciseId: gone, name: "Old", categories: ["Legs"], sets: 3, reps: 5, weight: 10),
+        ])
+        let out = Library.relabel([w], using: [copy])
+        #expect(out[0].entries.map(\.categories) == [["Quads"], ["Legs"]])
+        #expect(out[0].id == w.id)
+    }
 }
 
 @Suite("Weekly numbers")
