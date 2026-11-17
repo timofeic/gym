@@ -13,7 +13,9 @@ LiveKit. How the parts fit: [../docs/native-architecture.md](../docs/native-arch
   reset it.
 - **Coach**: talk to the voice coach. It logs workouts, answers questions,
   suggests weights and runs rest timers. Screens refresh when it saves.
-- **Settings** (person icon): categories, sign out.
+- **Settings** (person icon): categories, sign out. Renaming or deleting a
+  category updates every exercise you see that uses it; built-ins become your
+  own edited copy (same as the web app), and Reset brings back the original.
 
 ## Run it locally (no Google, no LiveKit needed)
 

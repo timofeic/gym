@@ -16,6 +16,7 @@ import {
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { getAuthenticatedClient } from '@/lib/supabase'
 import { useSession } from 'next-auth/react'
+import { changeCategory, planCategoryChange } from '@/lib/categories'
 
 type Category = {
   id: string
@@ -112,7 +113,8 @@ export function CategoryManagement() {
   }
 
   const handleUpdateCategory = async (category: Category) => {
-    if (!session?.supabaseAccessToken || !editingName.trim()) return
+    const userId = session?.user?.id
+    if (!session?.supabaseAccessToken || !userId || !editingName.trim()) return
 
     setIsSubmitting(true)
     setError(null)
@@ -131,36 +133,8 @@ export function CategoryManagement() {
         return
       }
 
-      // Update category in categories table
-      const { error: updateError } = await supabase
-        .from('categories')
-        .update({ name: editingName.trim() })
-        .eq('id', category.id)
-
-      if (updateError) throw updateError
-
-      // Update category name in exercises that use it
-      const { data: exercises, error: fetchError } = await supabase
-        .from('exercises')
-        .select('id, categories')
-        .contains('categories', [category.name])
-
-      if (fetchError) throw fetchError
-
-      if (exercises && exercises.length > 0) {
-        for (const exercise of exercises) {
-          const updatedCategories = exercise.categories.map((cat: string) =>
-            cat === category.name ? editingName.trim() : cat
-          )
-
-          const { error: updateExerciseError } = await supabase
-            .from('exercises')
-            .update({ categories: updatedCategories })
-            .eq('id', exercise.id)
-
-          if (updateExerciseError) throw updateExerciseError
-        }
-      }
+      // Updates the person's own exercises; built-ins become an edited copy.
+      await changeCategory(supabase, userId, category, editingName.trim())
 
       setSuccess('Category updated successfully')
       setEditingId(null)
@@ -175,20 +149,19 @@ export function CategoryManagement() {
   }
 
   const openDeleteDialog = async (category: Category) => {
-    if (!session?.supabaseAccessToken) return
+    const userId = session?.user?.id
+    if (!session?.supabaseAccessToken || !userId) return
 
     try {
       const supabase = getAuthenticatedClient(session.supabaseAccessToken)
 
-      // Count exercises that use this category
-      const { data: exercises, error } = await supabase
-        .from('exercises')
-        .select('id')
-        .contains('categories', [category.name])
+      // Count the exercises this person sees that use this category
+      const { data: exercises, error } = await supabase.from('exercises').select('*')
 
       if (error) throw error
 
-      setAffectedExercisesCount(exercises?.length || 0)
+      const plan = planCategoryChange(exercises ?? [], userId, category.name, null)
+      setAffectedExercisesCount(plan.copies.length + plan.updates.length)
       setCategoryToDelete(category)
       setDeleteDialogOpen(true)
     } catch (err) {
@@ -198,7 +171,8 @@ export function CategoryManagement() {
   }
 
   const handleDeleteCategory = async () => {
-    if (!session?.supabaseAccessToken || !categoryToDelete) return
+    const userId = session?.user?.id
+    if (!session?.supabaseAccessToken || !userId || !categoryToDelete) return
 
     setIsSubmitting(true)
     setError(null)
@@ -207,36 +181,8 @@ export function CategoryManagement() {
     try {
       const supabase = getAuthenticatedClient(session.supabaseAccessToken)
 
-      // Remove category from all exercises
-      const { data: exercises, error: fetchError } = await supabase
-        .from('exercises')
-        .select('id, categories')
-        .contains('categories', [categoryToDelete.name])
-
-      if (fetchError) throw fetchError
-
-      if (exercises && exercises.length > 0) {
-        for (const exercise of exercises) {
-          const updatedCategories = exercise.categories.filter(
-            (cat: string) => cat !== categoryToDelete.name
-          )
-
-          const { error: updateError } = await supabase
-            .from('exercises')
-            .update({ categories: updatedCategories })
-            .eq('id', exercise.id)
-
-          if (updateError) throw updateError
-        }
-      }
-
-      // Delete the category
-      const { error: deleteError } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', categoryToDelete.id)
-
-      if (deleteError) throw deleteError
+      // Removes it from the person's exercises; built-ins become an edited copy.
+      await changeCategory(supabase, userId, categoryToDelete, null)
 
       setSuccess('Category deleted successfully')
       setDeleteDialogOpen(false)

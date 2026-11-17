@@ -13,6 +13,10 @@ final class AppModel {
     private(set) var history: [Workout] = []
     private(set) var loaded = false
     var error: String?
+    /// Alert title for `error`. Expected refusals say what happened rather than
+    /// "Something went wrong".
+    var errorTitle = AppModel.faultTitle
+    nonisolated static let faultTitle = "Something went wrong"
 
     var calendar = Stats.calendar()
 
@@ -41,7 +45,9 @@ final class AppModel {
             async let cats = store.categories()
             async let rec = store.recentWorkouts()
             async let all = store.allWorkouts()
-            (exercises, categories, recent, history) = try await (ex, cats, rec, all)
+            let (e, c, r, h) = try await (ex, cats, rec, all)
+            (exercises, categories) = (e, c)
+            (recent, history) = (Library.relabel(r, using: e), Library.relabel(h, using: e))
         }
         loaded = true
     }
@@ -52,7 +58,8 @@ final class AppModel {
             case .workouts:
                 async let rec = store.recentWorkouts()
                 async let all = store.allWorkouts()
-                (recent, history) = try await (rec, all)
+                let (r, h) = try await (rec, all)
+                (recent, history) = (Library.relabel(r, using: exercises), Library.relabel(h, using: exercises))
             case .exercises:
                 exercises = try await store.exercises()
             case .categories:
@@ -73,12 +80,22 @@ final class AppModel {
             if kind == .categories || kind == .exercises { await reload(.workouts) }
             return true
         } catch {
-            self.error = error.localizedDescription
+            show(error)
             return false
         }
     }
 
     private func attempt(_ work: () async throws -> Void) async {
-        do { try await work(); error = nil } catch { self.error = error.localizedDescription }
+        do { try await work(); error = nil } catch { show(error) }
     }
+
+    private func show(_ error: Error) {
+        errorTitle = (error as? ExplainedError)?.title ?? Self.faultTitle
+        self.error = error.localizedDescription
+    }
+}
+
+/// An expected refusal, not a fault: shown under its own plain title.
+protocol ExplainedError: LocalizedError {
+    var title: String { get }
 }

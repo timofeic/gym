@@ -87,4 +87,35 @@ public enum Library {
         }
         return out
     }
+
+    /// What renaming (`to` non-nil) or deleting a category does to the library
+    /// a person sees (`Library.visible`). Their own exercises are updated;
+    /// built-ins are shared rows, so they become an edited copy, as if the
+    /// person had edited them. The web app does the same (gym-app/lib/categories.ts).
+    public static func planRecategorise(_ visible: [Exercise], from old: String, to new: String?, userId: UUID) -> [EditPlan] {
+        visible.compactMap { ex in
+            guard ex.categories.contains(old) else { return nil }
+            var edited = ex
+            edited.categories = recategorise(ex.categories, from: old, to: new)
+            return planEdit(original: ex, edited: edited, userId: userId)
+        }
+    }
+
+    /// Past workouts with each entry's categories taken from the person's
+    /// current version of that exercise (itself, or their edited copy of a
+    /// built-in), so a renamed category reaches history too.
+    public static func relabel(_ workouts: [Workout], using visible: [Exercise]) -> [Workout] {
+        var current: [UUID: [String]] = [:]
+        for ex in visible {
+            current[ex.id] = ex.categories
+            if let parent = ex.parentExerciseId { current[parent] = ex.categories }
+        }
+        return workouts.map { w in
+            var w = w
+            for i in w.entries.indices {
+                if let cats = current[w.entries[i].exerciseId] { w.entries[i].categories = cats }
+            }
+            return w
+        }
+    }
 }

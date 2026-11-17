@@ -58,8 +58,9 @@ struct GymStore: Sendable {
         }
     }
 
-    enum DeleteError: LocalizedError {
+    enum DeleteError: ExplainedError {
         case usedInWorkouts
+        var title: String { "Can't delete this exercise" }
         var errorDescription: String? { "This exercise is in past workouts, so it can't be deleted." }
     }
 
@@ -82,15 +83,18 @@ struct GymStore: Sendable {
         try await db.from("categories").insert(Row(name: name.trimmingCharacters(in: .whitespaces))).execute()
     }
 
-    /// Renames (`to` non-nil) or deletes a category, and fixes every exercise using it.
+    /// Renames (`to` non-nil) or deletes a category, and fixes every exercise
+    /// this person sees that uses it. Built-ins become their own edited copy.
     func changeCategory(_ category: GymCore.Category, to newName: String?) async throws {
-        struct Row: Decodable { let id: UUID; let categories: [String]? }
-        let using: [Row] = try await db.from("exercises").select("id, categories")
-            .contains("categories", value: [category.name]).execute().value
-        for row in using {
-            struct Update: Encodable { let categories: [String] }
-            let updated = Library.recategorise(row.categories ?? [], from: category.name, to: newName)
-            try await db.from("exercises").update(Update(categories: updated)).eq("id", value: row.id).execute()
+        let plans = Library.planRecategorise(try await exercises(), from: category.name, to: newName, userId: userId)
+        for plan in plans {
+            switch plan {
+            case .createCopy(let copy):
+                try await db.from("exercises").insert(ExerciseRow(copy)).execute()
+            case .update(let e):
+                struct Update: Encodable { let categories: [String] }
+                try await db.from("exercises").update(Update(categories: e.categories)).eq("id", value: e.id).execute()
+            }
         }
         if let newName {
             struct Rename: Encodable { let name: String }

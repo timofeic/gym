@@ -86,7 +86,7 @@ struct MainTabs: View {
             await model.loadAll()
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
-        .alert("Something went wrong", isPresented: .init(
+        .alert(model.errorTitle, isPresented: .init(
             get: { model.error != nil }, set: { if !$0 { model.error = nil } })
         ) { Button("OK") {} } message: { Text(model.error ?? "") }
         // Last, so the sheet and alert above get the model too.
