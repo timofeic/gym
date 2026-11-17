@@ -4,14 +4,16 @@ import pytest
 from livekit.agents import llm
 
 from gym_agent import agent as agent_mod
-from gym_agent.claude_llm import DEFAULT_MODEL, ClaudeVoiceLLM
+from types import SimpleNamespace
+
+from gym_agent.claude_llm import DEFAULT_MODEL, REFUSAL_REPLY, ClaudeVoiceLLM, RefusalAwareStream, request_extras
 
 
 class FakeCoach:
     pass
 
 
-async def test_request_fits_sonnet_5_5_rules(monkeypatch):
+async def test_request_fits_haiku_5_5_rules(monkeypatch):
     captured = {}
 
     lm = ClaudeVoiceLLM(api_key="sk-test-not-real")
@@ -33,9 +35,11 @@ async def test_request_fits_sonnet_5_5_rules(monkeypatch):
         await stream._create_anthropic_stream()
     await stream.aclose()
 
-    assert captured["model"] == DEFAULT_MODEL == "claude-sonnet-5-5"
+    assert captured["model"] == DEFAULT_MODEL == "claude-haiku-5-5"
+    # Haiku 5.5 defaults to medium effort, so low must be sent explicitly.
     assert captured["output_config"] == {"effort": "low"}
-    assert captured["thinking"] == {"type": "between_tools"}
+    # between_tools is Sonnet 5.5 only; budget_tokens is a 400.
+    assert captured["thinking"] == {"type": "adaptive"}
     for banned in ("temperature", "top_p", "top_k"):
         assert banned not in captured
         assert banned not in (captured.get("extra_body") or {})
@@ -46,9 +50,38 @@ async def test_request_fits_sonnet_5_5_rules(monkeypatch):
     assert {"log_workout", "weekly_sets", "start_rest_timer", "update_exercise"} <= names
 
 
-def test_temperature_is_rejected_up_front():
+@pytest.mark.parametrize("banned", ["temperature", "top_k", "top_p"])
+def test_sampling_settings_are_rejected_up_front(banned):
     with pytest.raises(ValueError):
-        ClaudeVoiceLLM(api_key="sk-test-not-real", temperature=0.2)
+        ClaudeVoiceLLM(api_key="sk-test-not-real", **{banned: 0.2})
+
+
+def test_sonnet_override_still_gets_its_own_thinking_mode():
+    assert request_extras("claude-sonnet-5-5")["thinking"] == {"type": "between_tools"}
+    assert request_extras("claude-haiku-5-5")["thinking"] == {"type": "adaptive"}
+
+
+async def test_refusal_is_spoken_not_silent():
+    lm = ClaudeVoiceLLM(api_key="sk-test-not-real")
+    stream = lm.chat(chat_ctx=llm.ChatContext())
+    assert isinstance(stream, RefusalAwareStream)
+    stream._request_id = "msg_1"
+    refusal = SimpleNamespace(
+        type="message_delta",
+        delta=SimpleNamespace(stop_reason="refusal", stop_details=SimpleNamespace(category="general_harms")),
+        usage=SimpleNamespace(output_tokens=3),
+    )
+    chunk = stream._parse_event(refusal)
+    assert chunk is not None and chunk.delta.content == REFUSAL_REPLY
+    assert stream._output_tokens == 3
+
+    normal = SimpleNamespace(
+        type="message_delta",
+        delta=SimpleNamespace(stop_reason="end_turn", stop_details=None),
+        usage=SimpleNamespace(output_tokens=1),
+    )
+    assert stream._parse_event(normal) is None
+    await stream.aclose()
 
 
 def test_timezone_falls_back_to_utc():

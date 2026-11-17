@@ -56,7 +56,7 @@ the agent named `gym-coach`.
 
 ## Voice agent (`agent/`)
 
-Python, `livekit-agents`. Agent name `gym-coach`. Claude Sonnet 5.5 does the thinking,
+Python, `livekit-agents`. Agent name `gym-coach`. Claude Haiku 5.5 does the thinking,
 LiveKit Inference does speech in and out.
 
 - Trusts the remote participant identity as the user id.
