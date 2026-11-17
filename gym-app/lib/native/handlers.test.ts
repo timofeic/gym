@@ -146,6 +146,41 @@ describe('Google sign-in on the phone', () => {
   })
 })
 
+describe('Google sign-in with the production settings', () => {
+  const IOS_CLIENT = '903695837668-c65vq3ldr9i7nthm1jlq3793uutbo74l.apps.googleusercontent.com'
+  const prodConfig = () => ({
+    ...configFromEnv({
+      NODE_ENV: 'production',
+      AUTH_GOOGLE_ID: WEB_CLIENT,
+      GOOGLE_IOS_CLIENT_ID: IOS_CLIENT,
+      SUPABASE_JWT_SECRET: SECRET,
+    } as unknown as NodeJS.ProcessEnv),
+  })
+
+  it('accepts a token from the iPhone app\'s Google client', async () => {
+    const config = prodConfig()
+    expect(config.googleAudiences).toEqual([WEB_CLIENT, IOS_CLIENT])
+    const res = await handleSession(
+      post('/api/native/session', { idToken: await googleToken({ email: 'a@example.com' }, IOS_CLIENT) }),
+      withGoogle({ config, users: memoryUsers() }),
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('refuses iPhone tokens if GOOGLE_IOS_CLIENT_ID is missing', async () => {
+    const config = configFromEnv({ AUTH_GOOGLE_ID: WEB_CLIENT, SUPABASE_JWT_SECRET: SECRET } as unknown as NodeJS.ProcessEnv)
+    const res = await handleSession(
+      post('/api/native/session', { idToken: await googleToken({ email: 'a@example.com' }, IOS_CLIENT) }),
+      withGoogle({ config, users: memoryUsers() }),
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('never turns on dev sign-in in production', () => {
+    expect(configFromEnv({ NODE_ENV: 'production', NATIVE_DEV_LOGIN: 'true' } as unknown as NodeJS.ProcessEnv).devLoginEnabled).toBe(false)
+  })
+})
+
 describe('Dev sign-in', () => {
   const lifter = { id: '11111111-1111-1111-1111-111111111111', email: 'lifter@example.test', name: 'Test Lifter' }
 

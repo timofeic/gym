@@ -9,7 +9,8 @@ DEV_LOGIN_EMAIL = lifter@example.test
 // SUPABASE_ANON_KEY = <anon key>
 // DEV_LOGIN_EMAIL =
 
-// Google Cloud console > Credentials > iOS client for bundle id com.timofeic.gym
-GOOGLE_IOS_CLIENT_ID = <ios client id>.apps.googleusercontent.com
-GOOGLE_WEB_CLIENT_ID = <existing AUTH_GOOGLE_ID>
-GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.<ios client id>
+// Google sign-in ids are already in App.xcconfig. Only override them to test
+// another Google Cloud project:
+// GOOGLE_IOS_CLIENT_ID = <ios client id>.apps.googleusercontent.com
+// GOOGLE_WEB_CLIENT_ID = <web client id>
+// GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.<ios client id>
