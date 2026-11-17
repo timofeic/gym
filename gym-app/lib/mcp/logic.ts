@@ -19,8 +19,10 @@ export type Exercise = {
 
 export type WorkoutRow = {
   id: string
+  user_id?: string
   date: string
   workout_exercises?: {
+    id?: string
     exercise_id?: string
     sets: number
     reps: number

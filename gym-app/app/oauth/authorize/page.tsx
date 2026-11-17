@@ -1,13 +1,13 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { signIn } from '@/auth'
+import { appleWebSignIn, signIn } from '@/auth'
 import { checkAuthorizeRequest, signConsent } from '@/lib/mcp/oauth'
 import { mcpDeps, originFrom } from '@/lib/mcp/config'
 import { webUser } from '@/lib/mcp/session'
 import { devLoginEmail, devSignIn } from '@/lib/mcp/devlogin'
 
 // The connector's sign-in and consent page. Claude or ChatGPT sends people
-// here; they sign in with Google (same account as the website), see what the
+// here; they sign in with Google or Apple (the same account as the app), see what the
 // connector can do, and approve.
 
 export const dynamic = 'force-dynamic'
@@ -58,10 +58,19 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
       <Card>
         <h1 className="text-xl font-semibold">Connect {appName} to Gym</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Sign in with the Google account you use for Gym. Next you’ll see what {appName} will be able to do.
+          Sign in the way you do in the Gym app. Next you’ll see what {appName} will be able to do.
         </p>
+        {appleWebSignIn && (
+          <form action={async () => { 'use server'; await signIn('apple', { redirectTo: here }) }}>
+            <button type="submit" className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black">
+              Sign in with Apple
+            </button>
+          </form>
+        )}
         <form action={async () => { 'use server'; await signIn('google', { redirectTo: here }) }}>
-          <button type="submit" className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black">
+          <button type="submit" className={appleWebSignIn
+            ? 'w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium dark:border-gray-600'
+            : 'w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black'}>
             Sign in with Google
           </button>
         </form>
