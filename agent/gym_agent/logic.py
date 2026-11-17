@@ -10,7 +10,6 @@ from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
 LIMITS = {"sets": (1, 10), "reps": (1, 100), "weight": (0, 500)}
-EXCLUDED_WEEKLY_CATEGORIES = {"Upper", "Lower", "Push", "Pull"}
 WEIGHT_STEP_KG = 2.5
 
 
@@ -111,14 +110,12 @@ def parse_ts(value: str) -> datetime:
 
 
 def weekly_sets(workouts: list[dict[str, Any]]) -> dict[str, int]:
-    """Sets per category across the given workouts, skipping split categories."""
+    """Sets per category across the given workouts. Every category counts, whatever it's called."""
     totals: dict[str, int] = {}
     for w in workouts:
         for we in w.get("workout_exercises") or []:
             ex = we.get("exercises") or {}
             for cat in ex.get("categories") or []:
-                if cat in EXCLUDED_WEEKLY_CATEGORIES:
-                    continue
                 totals[cat] = totals.get(cat, 0) + int(we["sets"])
     return dict(sorted(totals.items(), key=lambda kv: (-kv[1], kv[0])))
 

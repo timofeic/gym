@@ -2,7 +2,6 @@
 // agent/gym_agent/logic.py: keep the two in step. No network here.
 
 export const LIMITS = { sets: [1, 10], reps: [1, 100], weight: [0, 500] } as const
-export const EXCLUDED_WEEKLY_CATEGORIES = new Set(['Upper', 'Lower', 'Push', 'Pull'])
 export const WEIGHT_STEP_KG = 2.5
 
 export type Exercise = {
@@ -212,13 +211,12 @@ export function weekStart(now: Date, tz: string): Date {
   return zonedTime(sunday.year, sunday.month, sunday.day, tz)
 }
 
-/** Sets per category across the given workouts, skipping split categories. */
+/** Sets per category across the given workouts. Every category counts, whatever it's called. */
 export function weeklySets(workouts: WorkoutRow[]): Record<string, number> {
   const totals: Record<string, number> = {}
   for (const w of workouts) {
     for (const we of w.workout_exercises ?? []) {
       for (const cat of we.exercises?.categories ?? []) {
-        if (EXCLUDED_WEEKLY_CATEGORIES.has(cat)) continue
         totals[cat] = (totals[cat] ?? 0) + Number(we.sets)
       }
     }

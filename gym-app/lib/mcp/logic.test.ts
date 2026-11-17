@@ -87,7 +87,7 @@ describe('dates in the user timezone', () => {
 })
 
 describe('weekly sets', () => {
-  it('skip split categories and sum sets', () => {
+  it('count every category, splits included, and sum sets', () => {
     const workouts = [
       { id: 'w1', date: '', workout_exercises: [
         { sets: 3, reps: 8, weight: 0, exercises: { name: 'x', categories: ['Chest', 'Upper', 'Push'] } },
@@ -95,7 +95,13 @@ describe('weekly sets', () => {
       ] },
       { id: 'w2', date: '', workout_exercises: [{ sets: 4, reps: 8, weight: 0, exercises: { name: 'x', categories: ['Chest'] } }] },
     ]
-    expect(logic.weeklySets(workouts)).toEqual({ Chest: 7, Legs: 5 })
+    expect(logic.weeklySets(workouts)).toEqual({ Chest: 7, Legs: 5, Lower: 5, Push: 3, Upper: 3 })
+  })
+
+  it("doesn't depend on a category's name (renaming Pull to Pulling changes nothing)", () => {
+    const row = (cat: string) => [{ id: 'w', date: '', workout_exercises: [{ sets: 4, reps: 8, weight: 0, exercises: { name: 'Row', categories: ['Back', cat] } }] }]
+    expect(logic.weeklySets(row('Pull'))).toEqual({ Back: 4, Pull: 4 })
+    expect(logic.weeklySets(row('Pulling'))).toEqual({ Back: 4, Pulling: 4 })
   })
 })
 

@@ -36,6 +36,28 @@ final class GymUITests: XCTestCase {
                       "The new workout should appear with the exercise's default sets, reps and weight")
     }
 
+    /// Every category with sets this week shows in "Sets per muscle", whatever
+    /// it is called. Deadlift is Back, Legs, Lower and Pull; before, Lower and
+    /// Pull were hidden by name, so renaming Pull to Pulling made it appear.
+    func testEveryCategoryWithSetsThisWeekCountsInSetsPerMuscle() {
+        app.buttons["logWorkout"].tap()
+        app.buttons["addExercise"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Deadlift")
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Deadlift'")).firstMatch.tap()
+        app.buttons["saveWorkout"].tap()
+        XCTAssertTrue(app.staticTexts["Deadlift: 3 × 5 @ 100 kg"].waitForExistence(timeout: 10))
+        for category in ["Back", "Legs", "Lower", "Pull"] {
+            let row = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "\(category): ")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 5), "\(category) should count in sets per muscle")
+        }
+        if ProcessInfo.processInfo.environment["CAPTURE_SCREENS"] == "1" {
+            let a = XCTAttachment(screenshot: app.screenshot()); a.name = "sets-per-muscle"; a.lifetime = .keepAlways; add(a)
+        }
+    }
+
     func testAddingAnExerciseAndCatchingADuplicateName() {
         app.tabBars.buttons["Exercises"].tap()
         app.buttons["newExercise"].tap()

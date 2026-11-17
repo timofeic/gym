@@ -407,11 +407,10 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
       expect(s.data).toMatchObject({ exercise: 'Bench Press', weightKg: 62.5, sets: 3, reps: 8 })
     })
 
-    it('counts weekly sets per muscle, skipping Upper, Lower, Push and Pull', async () => {
+    it('counts weekly sets per category, Upper and Push included', async () => {
       const w = await call(token, 'weekly_sets_per_muscle')
-      // Today's bench (3 sets, Chest). Other workouts may or may not fall in this week.
-      expect(w.data.sets.Chest).toBeGreaterThanOrEqual(3)
-      for (const skip of ['Upper', 'Lower', 'Push', 'Pull']) expect(w.data.sets[skip]).toBeUndefined()
+      // Today's bench (3 sets: Chest, Upper, Push). Other workouts may or may not fall in this week.
+      for (const cat of ['Chest', 'Upper', 'Push']) expect(w.data.sets[cat], cat).toBeGreaterThanOrEqual(3)
     })
 
     it('adds an exercise and refuses a duplicate name', async () => {

@@ -58,7 +58,7 @@ def test_week_starts_on_sunday_in_the_users_timezone():
     assert start.isoformat() == "2026-11-15T00:00:00+11:00"
 
 
-def test_weekly_sets_skip_split_categories_and_sum_sets():
+def test_weekly_sets_count_every_category_and_sum_sets():
     workouts = [
         {"workout_exercises": [
             {"sets": 3, "exercises": {"categories": ["Chest", "Upper", "Push"]}},
@@ -66,7 +66,14 @@ def test_weekly_sets_skip_split_categories_and_sum_sets():
         ]},
         {"workout_exercises": [{"sets": 4, "exercises": {"categories": ["Chest"]}}]},
     ]
-    assert logic.weekly_sets(workouts) == {"Chest": 7, "Legs": 5}
+    assert logic.weekly_sets(workouts) == {"Chest": 7, "Legs": 5, "Lower": 5, "Push": 3, "Upper": 3}
+
+
+def test_weekly_sets_do_not_depend_on_a_categorys_name():
+    def row(cat):
+        return [{"workout_exercises": [{"sets": 4, "exercises": {"categories": ["Back", cat]}}]}]
+    assert logic.weekly_sets(row("Pull")) == {"Back": 4, "Pull": 4}
+    assert logic.weekly_sets(row("Pulling")) == {"Back": 4, "Pulling": 4}
 
 
 def test_suggest_adds_2_5_after_two_good_sessions_at_same_weight():

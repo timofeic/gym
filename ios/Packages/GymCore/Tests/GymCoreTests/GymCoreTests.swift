@@ -153,7 +153,7 @@ struct StatsTests {
 
     func workout(_ when: String, _ entries: [WorkoutEntry]) -> Workout { Workout(date: date(when), entries: entries) }
 
-    @Test func weeklySetsCountThisWeekOnlyAndSkipSplitCategories() {
+    @Test func weeklySetsCountThisWeekOnlyAndEveryCategory() {
         let bench = WorkoutEntry(exerciseId: UUID(), name: "Bench", categories: ["Chest", "Upper", "Push"], sets: 3, reps: 8, weight: 60)
         let row = WorkoutEntry(exerciseId: UUID(), name: "Row", categories: ["Back", "Pull"], sets: 4, reps: 10, weight: 50)
         let sets = Stats.weeklySets([
@@ -161,8 +161,18 @@ struct StatsTests {
             workout("2026-11-11T18:00:00+11:00", [bench]),
             workout("2026-11-07T23:30:00+11:00", [bench, row]),     // Saturday night: last week
         ], now: now, calendar: cal)
-        #expect(sets.map(\.category) == ["Chest", "Back"])
-        #expect(sets.map(\.sets) == [6, 4])
+        #expect(sets.map(\.category) == ["Chest", "Push", "Upper", "Back", "Pull"])
+        #expect(sets.map(\.sets) == [6, 6, 6, 4, 4])
+    }
+
+    /// The tester renamed "Pull" to "Pulling" and it started counting. The rule
+    /// can't depend on a category's name, so both count the same.
+    @Test func weeklySetsDoNotDependOnACategorysName() {
+        let row = { (cat: String) in WorkoutEntry(exerciseId: UUID(), name: "Row", categories: ["Back", cat], sets: 4, reps: 10, weight: 50) }
+        let before = Stats.weeklySets([workout("2026-11-09T12:00:00+11:00", [row("Pull")])], now: now, calendar: cal)
+        let after = Stats.weeklySets([workout("2026-11-09T12:00:00+11:00", [row("Pulling")])], now: now, calendar: cal)
+        #expect(before.map(\.sets) == after.map(\.sets))
+        #expect(before.contains { $0.category == "Pull" && $0.sets == 4 })
     }
 
     @Test func workoutsPerDayRunSundayToSaturdayInLocalTime() {
