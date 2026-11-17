@@ -53,8 +53,9 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">What the Claude and ChatGPT connector can do</h2>
         <p>
-          It can read your workouts, exercises and categories, log new workouts, add exercises and categories, and edit your
-          exercises. It can’t delete anything and can’t see other people’s data. Your conversations with Claude or ChatGPT
+          It can read your workouts, exercises and categories, log workouts and change, merge or delete them, add exercises
+          and categories, and edit your exercises. It can’t delete exercises or categories, and can’t see other people’s
+          data. Your conversations with Claude or ChatGPT
           stay with them; Gym only sees the requests the assistant makes to it.
         </p>
       </section>

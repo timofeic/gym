@@ -14,10 +14,10 @@ export const dynamic = 'force-dynamic'
 
 const CAN_DO = [
   'Read your workouts, exercises and categories',
-  'Log new workouts',
+  'Log workouts, and change, merge or delete them',
   'Add exercises and categories, and edit your exercises',
 ]
-const CANNOT_DO = ['Delete workouts or exercises', 'See anyone else’s data']
+const CANNOT_DO = ['Delete exercises or categories', 'See anyone else’s data']
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
