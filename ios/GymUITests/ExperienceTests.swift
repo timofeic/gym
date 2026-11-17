@@ -306,7 +306,7 @@ final class ExperienceTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.navigationBars["Overview"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts["restTimerCountdown"].firstMatch.waitForExistence(timeout: 5), "The rest Siri started shows in Gym")
-        XCTAssertTrue(app.staticTexts["Deadlift: 3 × 5 @ 100 kg"].waitForExistence(timeout: 10), "The set Siri logged shows in Gym")
+        XCTAssertTrue(app.staticTexts["Deadlift: 3 × 5 @ 100 kg"].appears(in: app), "The set Siri logged shows in Gym")
         shot("home-after-shortcuts")
 
         // Leave things as they were for the other tests.
