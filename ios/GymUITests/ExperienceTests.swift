@@ -224,6 +224,41 @@ final class ExperienceTests: XCTestCase {
         shot("rest-timer-notification", springboard)
     }
 
+    /// Found by the blind tester: on a fresh install the notification question
+    /// came up once the first rest was already running, and that rest's alert
+    /// didn't arrive in the background. The rest kept counting behind the
+    /// question, so a slow answer used it up and the alert fired with Gym in
+    /// front. Now the question comes first and the rest starts after the answer.
+    /// Meaningful on a fresh install (no answer yet): run it after
+    /// `xcrun simctl uninstall <device> com.timofeic.gym`.
+    func testTheFirstRestOnAFreshInstallNotifiesInTheBackground() {
+        launchSignedIn(["GYM_TEST_REST_SECONDS": "8"])
+        app.buttons["logWorkout"].tap()
+        let lengths = app.buttons["restLengths"]
+        XCTAssertTrue(lengths.waitForExistence(timeout: 5))
+        lengths.tap()
+        let short = app.buttons["rest8"]
+        XCTAssertTrue(short.waitForExistence(timeout: 5))
+        short.tap()
+        let question = springboard.alerts.firstMatch
+        let asked = question.waitForExistence(timeout: 5)
+        if asked {
+            shot("first-rest-notification-question")
+            sleep(10) // reads the question for longer than the rest lasts
+            allowSystemAlert(timeout: 0)
+        }
+        let countdown = app.staticTexts["restTimerCountdown"].firstMatch
+        XCTAssertTrue(countdown.waitForExistence(timeout: 5))
+        let left = seconds(countdown.label)
+        XCTAssertTrue(left > 0, "The rest should still be ahead after answering the question, was \(countdown.label)")
+        if asked { shot("first-rest-after-allow") }
+        // Straight to the home screen, like someone putting the phone away.
+        XCUIDevice.shared.press(.home)
+        let banner = springboard.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Rest done'")).firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 30), "The first rest's 'Rest done' notification should arrive with Gym in the background (asked: \(asked))")
+        shot("first-rest-notification", springboard)
+    }
+
     // MARK: F3 Siri and Shortcuts
 
     /// Runs both Gym actions from the Shortcuts app with Gym closed, then

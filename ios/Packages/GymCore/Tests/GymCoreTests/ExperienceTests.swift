@@ -14,8 +14,29 @@ final class MemoryTimerStorage: RestTimerStorage, @unchecked Sendable {
 actor RecordingAlerts: RestAlertScheduling {
     var scheduled: [(Date, Int)] = []
     var cancels = 0
+    func prepare() {}
     func schedule(endsAt: Date, seconds: Int) { scheduled.append((endsAt, seconds)) }
     func cancel() { cancels += 1 }
+}
+
+/// The first rest on a fresh install: the person takes a while to answer the
+/// notification question.
+actor FirstTimeAlerts: RestAlertScheduling {
+    let clock: TestClock
+    let answerTakes: TimeInterval
+    var asked = false
+    var scheduled: [Date] = []
+    init(clock: TestClock, answerTakes: TimeInterval) { self.clock = clock; self.answerTakes = answerTakes }
+    func prepare() {
+        guard !asked else { return }
+        asked = true
+        clock.now += answerTakes // the person reads the question and taps Allow
+    }
+    func schedule(endsAt: Date, seconds: Int) {
+        if !asked { prepare() } // the old way: ask only once the rest is running
+        scheduled.append(endsAt)
+    }
+    func cancel() {}
 }
 
 /// A clock the test moves by hand.
@@ -52,6 +73,23 @@ struct RestTimerTests {
         #expect(s.progress(at: clock.now.addingTimeInterval(45)) == 0.5)
         let scheduled = await alerts.scheduled
         #expect(scheduled.count == 1 && scheduled[0].0 == clock.now.addingTimeInterval(90) && scheduled[0].1 == 90)
+    }
+
+    /// Found by the blind tester: the first rest asked for notification
+    /// permission once it was already running, and its alert came late.
+    /// Asking first means the whole rest, and its alert, start after the answer.
+    @Test func theFirstRestAsksAboutNotificationsBeforeItStarts() async throws {
+        let clock = TestClock(), tapped = clock.now
+        let alerts = FirstTimeAlerts(clock: clock, answerTakes: 20)
+        let timer = RestTimerEngine(storage: MemoryTimerStorage(), alerts: alerts, clock: clock.read)
+        let s = try await timer.start(seconds: 90)
+        let answered = tapped.addingTimeInterval(20)
+        #expect(s.startedAt == answered, "The rest starts once the question is answered")
+        #expect(s.secondsLeft(at: answered) == 90)
+        #expect(await alerts.scheduled == [answered.addingTimeInterval(90)])
+        // Later rests aren't held up.
+        let next = try await timer.start(seconds: 60)
+        #expect(next.startedAt == clock.now)
     }
 
     @Test func isSavedSoItSurvivesTheAppClosing() async throws {

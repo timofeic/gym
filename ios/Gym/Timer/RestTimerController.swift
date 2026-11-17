@@ -1,5 +1,6 @@
 import Foundation
 import GymCore
+import UIKit
 @preconcurrency import UserNotifications
 
 extension RestTimerEngine {
@@ -32,7 +33,7 @@ final class DefaultsTimerStorage: RestTimerStorage, @unchecked Sendable {
 }
 
 /// A local notification when the rest is over. Asks for permission the
-/// first time a rest starts, not at launch.
+/// first time a rest starts (before it starts counting), not at launch.
 final class RestNotifications: NSObject, RestAlertScheduling, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = RestNotifications()
     static let id = "gym.rest-timer"
@@ -42,6 +43,16 @@ final class RestNotifications: NSObject, RestAlertScheduling, UNUserNotification
     override init() {
         super.init()
         center.delegate = self
+    }
+
+    /// Asks only while Gym is on screen. A rest started by Siri with Gym in
+    /// the background isn't held up by a question nobody can see.
+    func prepare() async {
+        guard await UIApplication.shared.applicationState == .active else { return }
+        let center = self.center
+        if await center.notificationSettings().authorizationStatus == .notDetermined {
+            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+        }
     }
 
     func schedule(endsAt: Date, seconds: Int) async {
