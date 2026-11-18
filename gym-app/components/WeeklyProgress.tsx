@@ -38,8 +38,6 @@ interface ProgressiveOverloadProps {
   refreshTrigger?: number
 }
 
-const EXCLUDED_CATEGORIES = ['Upper', 'Lower', 'Push', 'Pull']
-
 export default function WeeklyProgress({ refreshTrigger = 0 }: ProgressiveOverloadProps) {
   const { data: session } = useSession()
   const [weeklySets, setWeeklySets] = useState<WeeklySets>({})
@@ -93,10 +91,8 @@ export default function WeeklyProgress({ refreshTrigger = 0 }: ProgressiveOverlo
 
       ;(data as unknown as Workout[])?.forEach(workout => {
         workout.workout_exercises.forEach(exercise => {
+          // Every category counts, whatever it's called (renaming one mustn't change the count).
           exercise.exercises.categories?.forEach(category => {
-            // Skip excluded categories
-            if (EXCLUDED_CATEGORIES.includes(category)) return
-
             if (!weeklyData[weekStart][category]) {
               weeklyData[weekStart][category] = 0
             }

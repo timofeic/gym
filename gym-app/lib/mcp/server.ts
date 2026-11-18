@@ -70,7 +70,7 @@ export function createGymServer(tools: GymTools): McpServer {
 
   server.registerTool('weekly_sets_per_muscle', {
     title: 'Weekly sets per muscle',
-    description: 'Sets per muscle group (category) this week. The week starts on Sunday. Split categories (Upper, Lower, Push, Pull) are left out.',
+    description: 'Sets per muscle group (category) this week. The week starts on Sunday. Every category with sets counts.',
     inputSchema: { timezone },
     annotations: { title: 'Weekly sets per muscle', ...READ },
   }, async ({ timezone }) => reply(await tools.weeklySets(timezone)))

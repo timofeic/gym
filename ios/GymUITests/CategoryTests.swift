@@ -99,7 +99,7 @@ final class CategoryTests: XCTestCase {
         search.typeText(name)
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch.tap()
         app.buttons["saveWorkout"].tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "\(name):")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "\(name):")).firstMatch.appears(in: app))
 
         app.tabBars.buttons["Exercises"].tap()
         let find = app.searchFields["Search exercises"]

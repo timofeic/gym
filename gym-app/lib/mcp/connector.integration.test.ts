@@ -72,22 +72,22 @@ function authorizeQuery(clientId: string, challenge: string, extra: Record<strin
 }
 
 /** Runs the whole OAuth dance for a person and returns their tokens. */
-async function connect(userId: string, tz = TZ) {
+async function connect(userId: string, tz = TZ, d: McpDeps = deps) {
   const { body: client } = await register()
   const { verifier, challenge } = pkce()
   const check = await checkAuthorizeRequest(authorizeQuery(client.client_id, challenge), deps)
   if (!check.ok) throw new Error('authorize check failed')
-  const back = new URL(await approve(check.params, userId, tz, deps))
+  const back = new URL(await approve(check.params, userId, tz, d))
   const res = await handleToken(form({
     grant_type: 'authorization_code', code: back.searchParams.get('code')!, code_verifier: verifier,
     client_id: client.client_id, redirect_uri: CLAUDE_CALLBACK, resource: `${ORIGIN}/api/mcp`,
-  }), deps)
+  }), d)
   expect(res.status).toBe(200)
   return { clientId: client.client_id as string, ...(await res.json()) as { access_token: string; refresh_token: string } }
 }
 
 let rpcId = 0
-async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}) {
+async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}, d: McpDeps = deps) {
   const res = await handleMcp(new Request(`${ORIGIN}/api/mcp`, {
     method: 'POST',
     headers: {
@@ -97,12 +97,12 @@ async function mcp(token: string | null, method: string, params: Record<string, 
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params }),
-  }), deps)
+  }), d)
   return { status: res.status, headers: res.headers, body: res.status === 200 ? await res.json() : await res.text() }
 }
 
-async function call(token: string, name: string, args: Record<string, unknown> = {}) {
-  const { status, body } = await mcp(token, 'tools/call', { name, arguments: args })
+async function call(token: string, name: string, args: Record<string, unknown> = {}, d: McpDeps = deps) {
+  const { status, body } = await mcp(token, 'tools/call', { name, arguments: args }, d)
   expect(status).toBe(200)
   const result = body.result
   return { text: result.content[0].text as string, data: result.structuredContent, isError: !!result.isError }
@@ -359,19 +359,39 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
       expect(recent.data.workouts[0].exercises).toEqual([{ entryId: expect.any(String), name: 'Bench Press', sets: 3, reps: 8, weightKg: 60 }])
     })
 
-    it('logs on a past day and finds it by day name in the person’s timezone', async () => {
-      const r = await call(token, 'log_workout', { entries: [{ exercise: 'squats', sets: 5, reps: 5, weight: 100 }], date: 'last monday' })
+    // Its own person and a fixed clock, so no other workout (like today's bench,
+    // saved at the real time) can land in the day being checked. Melbourne is
+    // UTC+11 in November; Monday 16 Nov 2026 is the "last Monday" for most clocks.
+    it.each([
+      ['Mon 16 Nov 23:30', '2026-11-16T23:30:00+11:00', '2026-11-09'],
+      ['Tue 17 Nov 00:30', '2026-11-17T00:30:00+11:00', '2026-11-16'],
+      ['Tue 17 Nov 06:00', '2026-11-17T06:00:00+11:00', '2026-11-16'],
+      ['Tue 17 Nov 10:00', '2026-11-17T10:00:00+11:00', '2026-11-16'],
+      ['Tue 17 Nov 15:00', '2026-11-17T15:00:00+11:00', '2026-11-16'],
+      ['Tue 17 Nov 21:30', '2026-11-17T21:30:00+11:00', '2026-11-16'],
+      ['Tue 17 Nov 23:59', '2026-11-17T23:59:00+11:00', '2026-11-16'],
+      ['Wed 18 Nov 08:00', '2026-11-18T08:00:00+11:00', '2026-11-16'],
+      ['Sun 22 Nov 18:00', '2026-11-22T18:00:00+11:00', '2026-11-16'],
+    ])('logs on a past day and finds it by day name in the person’s timezone (clock %s)', async (_label, clock, monday) => {
+      const fixed: McpDeps = { ...deps, now: () => new Date(clock) }
+      const person = await newUser('tz')
+      const t = (await connect(person.id, TZ, fixed)).access_token
+      const at = (name: string, args: Record<string, unknown> = {}) => call(t, name, args, fixed)
+
+      const r = await at('log_workout', { entries: [{ exercise: 'squats', sets: 5, reps: 5, weight: 100 }], date: 'last monday' })
       expect(r.isError).toBe(false)
-      const date = r.data.date as string
-      const onMonday = await call(token, 'workouts_on_date', { date: 'monday' })
-      expect(onMonday.data.date).toBe(date)
+      expect(r.data.date).toBe(monday)
+      const onMonday = await at('workouts_on_date', { date: 'monday' })
+      expect(onMonday.data.date).toBe(monday)
       expect(onMonday.text).toContain('Back Squat, 5 sets of 5 at 100 kg')
-      const byIso = await call(token, 'workouts_on_date', { date })
-      expect(byIso.text).toContain('Back Squat')
-      // The same instant is a different day somewhere far away.
-      const other = await call(token, 'workouts_on_date', { date, timezone: 'Pacific/Pago_Pago' })
-      expect(other.text).toContain('No workout')
-      expect((await call(token, 'workouts_on_date', { date: 'someday' })).isError).toBe(true)
+      expect((await at('workouts_on_date', { date: monday })).text).toContain('Back Squat')
+      // The same instant (midday Monday in Melbourne) is Sunday in Pago Pago (UTC-11).
+      const sunday = new Date(Date.parse(`${monday}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+      expect((await at('workouts_on_date', { date: monday, timezone: 'Pacific/Pago_Pago' })).text).toContain('No workout')
+      const there = await at('workouts_on_date', { date: sunday, timezone: 'Pacific/Pago_Pago' })
+      expect(there.data.date).toBe(sunday)
+      expect(there.text).toContain('Back Squat')
+      expect((await at('workouts_on_date', { date: 'someday' })).isError).toBe(true)
     })
 
     it('shows exercise history and the trend', async () => {
@@ -390,11 +410,10 @@ describe.skipIf(!env)('gym connector against local Supabase', () => {
       expect(s.data).toMatchObject({ exercise: 'Bench Press', weightKg: 62.5, sets: 3, reps: 8 })
     })
 
-    it('counts weekly sets per muscle, skipping Upper, Lower, Push and Pull', async () => {
+    it('counts weekly sets per category, Upper and Push included', async () => {
       const w = await call(token, 'weekly_sets_per_muscle')
-      // Today's bench (3 sets, Chest). Other workouts may or may not fall in this week.
-      expect(w.data.sets.Chest).toBeGreaterThanOrEqual(3)
-      for (const skip of ['Upper', 'Lower', 'Push', 'Pull']) expect(w.data.sets[skip]).toBeUndefined()
+      // Today's bench (3 sets: Chest, Upper, Push). Other workouts may or may not fall in this week.
+      for (const cat of ['Chest', 'Upper', 'Push']) expect(w.data.sets[cat], cat).toBeGreaterThanOrEqual(3)
     })
 
     it('adds an exercise and refuses a duplicate name', async () => {

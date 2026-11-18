@@ -65,19 +65,49 @@ final class SignInTests: XCTestCase {
 
     /// Tapping Apple either opens Apple's sheet or, where Apple sign-in can't
     /// run (a simulator without iCloud, a build without the capability),
-    /// says so on screen instead of doing nothing.
+    /// says so on screen instead of doing nothing. Either way the person can
+    /// close it and is back on a working sign-in screen.
+    ///
+    /// It used to fail now and then: on a simulator with no Apple Account iOS
+    /// shows a "Sign in to your Apple Account" alert, which the first version
+    /// only matched by chance (it looked for SpringBoard "other" elements).
+    /// It now waits on all three outcomes at once, always closes the system
+    /// alert (even if an assertion fails), and checks the screen still works.
     func testTappingAppleOpensApplesSheetOrExplains() {
-        XCTAssertTrue(appleButton.waitForExistence(timeout: 10))
-        appleButton.tap()
-        // Apple's sheet, or on a simulator with no Apple Account its
-        // "Sign in to your Apple Account" alert, is drawn by the system.
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let systemUI = springboard.alerts.matching(NSPredicate(format: "label CONTAINS[c] 'Apple'")).firstMatch
+        let systemAlert = springboard.alerts.matching(NSPredicate(format: "label CONTAINS[c] 'Apple'")).firstMatch
         let appleSheet = springboard.otherElements.matching(NSPredicate(format: "label CONTAINS[c] 'Apple'")).firstMatch
         let message = app.staticTexts["signInError"]
-        let deadline = Date().addingTimeInterval(20)
-        while Date() < deadline, !message.exists, !appleSheet.exists, !systemUI.exists { usleep(250_000) }
-        XCTAssertTrue(message.exists || appleSheet.exists || systemUI.exists, "Expected Apple's sheet or an explanation")
-        if systemUI.exists, systemUI.buttons["Close"].exists { systemUI.buttons["Close"].tap() }
+        addTeardownBlock { @MainActor in Self.close(systemAlert) }
+
+        XCTAssertTrue(appleButton.waitForExistence(timeout: 10))
+        appleButton.tap()
+
+        let shown = NSPredicate { _, _ in message.exists || systemAlert.exists || appleSheet.exists }
+        let outcome = XCTNSPredicateExpectation(predicate: shown, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [outcome], timeout: 30), .completed,
+                       "Expected Apple's sheet, the system's Apple Account alert, or an explanation")
+
+        if systemAlert.exists {
+            let shot = XCTAttachment(screenshot: springboard.screenshot())
+            shot.name = "Apple Account alert"
+            shot.lifetime = .keepAlways
+            add(shot)
+            Self.close(systemAlert)
+            XCTAssertTrue(systemAlert.waitForNonExistence(timeout: 10), "The system alert should close")
+        }
+        // Back on a sign-in screen that still works, with any problem explained.
+        XCTAssertTrue(appleButton.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["signInDev"].isHittable, "The sign-in screen should be usable again")
+        if message.exists { XCTAssertFalse(message.label.isEmpty) }
+    }
+
+    /// Closes the system's Apple Account alert if it is up.
+    private static func close(_ alert: XCUIElement) {
+        guard alert.exists else { return }
+        for label in ["Close", "Cancel", "Not Now", "OK"] where alert.buttons[label].exists {
+            alert.buttons[label].tap()
+            return
+        }
     }
 }

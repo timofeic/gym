@@ -67,7 +67,10 @@ public protocol RestTimerStorage: AnyObject, Sendable {
 
 /// Tells the person when the rest is over (a local notification in the app).
 public protocol RestAlertScheduling: Sendable {
-    /// Asks for permission the first time, then schedules the alert.
+    /// Asks for permission if it hasn't been asked yet. Called before a rest
+    /// starts, so the question never runs while a rest is already counting.
+    func prepare() async
+    /// Schedules the alert (asking for permission first if it still has to).
     func schedule(endsAt: Date, seconds: Int) async
     func cancel() async
 }
@@ -94,6 +97,9 @@ public final class RestTimerEngine {
     @discardableResult
     public func start(seconds: Int) async throws -> RestTimerState {
         guard RestTimer.allowedSeconds.contains(seconds) else { throw RestTimer.OutOfRange(seconds: seconds) }
+        // On the first rest this asks about notifications. The rest starts
+        // after the answer, so its alert is scheduled while Gym is still open.
+        await alerts.prepare()
         let now = clock()
         let new = RestTimerState(startedAt: now, endsAt: now.addingTimeInterval(TimeInterval(seconds)))
         set(new)

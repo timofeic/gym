@@ -18,8 +18,9 @@ final class GymUITests: XCTestCase {
     }
 
     func testSeededHistoryShowsOnHome() {
-        XCTAssertTrue(app.staticTexts["Bench Press: 3 × 8 @ 60 kg"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.otherElements["weekChart"].exists || app.images["weekChart"].exists || app.descendants(matching: .any)["weekChart"].exists)
+        // The chart is at the top; the seeded workout may be below the fold.
+        XCTAssertTrue(app.descendants(matching: .any)["weekChart"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Bench Press: 3 × 8 @ 60 kg"].appears(in: app))
     }
 
     func testLoggingAWorkoutAddsItToRecentWorkouts() {
@@ -32,8 +33,31 @@ final class GymUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Deadlift'")).firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Deadlift"].waitForExistence(timeout: 5))
         app.buttons["saveWorkout"].tap()
-        XCTAssertTrue(app.staticTexts["Deadlift: 3 × 5 @ 100 kg"].waitForExistence(timeout: 10),
+        XCTAssertTrue(app.staticTexts["Deadlift: 3 × 5 @ 100 kg"].appears(in: app),
                       "The new workout should appear with the exercise's default sets, reps and weight")
+    }
+
+    /// Every category with sets this week shows in "Sets per muscle", whatever
+    /// it is called. Deadlift is Back, Legs, Lower and Pull; before, Lower and
+    /// Pull were hidden by name, so renaming Pull to Pulling made it appear.
+    func testEveryCategoryWithSetsThisWeekCountsInSetsPerMuscle() {
+        app.buttons["logWorkout"].tap()
+        app.buttons["addExercise"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Deadlift")
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Deadlift'")).firstMatch.tap()
+        app.buttons["saveWorkout"].tap()
+        XCTAssertTrue(app.staticTexts["Deadlift: 3 × 5 @ 100 kg"].appears(in: app))
+        app.swipeDown() // back to the top, where sets per muscle is
+        for category in ["Back", "Legs", "Lower", "Pull"] {
+            let row = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "\(category): ")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 5), "\(category) should count in sets per muscle")
+        }
+        if ProcessInfo.processInfo.environment["CAPTURE_SCREENS"] == "1" {
+            let a = XCTAttachment(screenshot: app.screenshot()); a.name = "sets-per-muscle"; a.lifetime = .keepAlways; add(a)
+        }
     }
 
     func testAddingAnExerciseAndCatchingADuplicateName() {
@@ -100,5 +124,19 @@ final class GymUITests: XCTestCase {
         app.buttons["settingsButton"].firstMatch.tap()
         app.buttons["signOut"].tap()
         XCTAssertTrue(app.buttons["signInDev"].waitForExistence(timeout: 5))
+    }
+}
+
+extension XCUIElement {
+    /// Waits for an element on Overview, scrolling down if it's below the fold.
+    /// SwiftUI only creates list rows near the screen, and "Sets per muscle"
+    /// can push "Recent workouts" off it.
+    func appears(in app: XCUIApplication, timeout: TimeInterval = 10) -> Bool {
+        if waitForExistence(timeout: timeout / 2) { return true }
+        for _ in 0..<4 {
+            app.swipeUp()
+            if waitForExistence(timeout: 1.5) { return true }
+        }
+        return exists
     }
 }

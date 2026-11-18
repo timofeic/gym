@@ -1,9 +1,6 @@
 import Foundation
 
 public enum Stats {
-    /// Categories that describe a split rather than a muscle; left out of weekly sets.
-    public static let splitCategories: Set<String> = ["Upper", "Lower", "Push", "Pull"]
-
     /// Sunday-start calendar in the given time zone.
     public static func calendar(_ timeZone: TimeZone = .current) -> Calendar {
         var cal = Calendar(identifier: .gregorian)
@@ -16,13 +13,15 @@ public enum Stats {
         cal.dateInterval(of: .weekOfYear, for: date)!
     }
 
-    /// Total sets per muscle category in the week containing `now`.
+    /// Total sets per category in the week containing `now`. Every category
+    /// counts, whatever it's called, so renaming one never changes the count.
+    /// Same rule as the web app and the connector.
     public static func weeklySets(_ workouts: [Workout], now: Date, calendar cal: Calendar) -> [(category: String, sets: Int)] {
         let week = weekInterval(containing: now, calendar: cal)
         var totals: [String: Int] = [:]
         for w in workouts where week.contains(w.date) && w.date < week.end {
             for e in w.entries {
-                for c in Set(e.categories) where !splitCategories.contains(c) {
+                for c in Set(e.categories) {
                     totals[c, default: 0] += e.sets
                 }
             }

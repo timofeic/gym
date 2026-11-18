@@ -78,7 +78,7 @@ Env: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SUPABASE_URL`,
   Editing a built-in exercise makes a personal copy with `parent_exercise_id`
   set; "reset to default" deletes the copy.
 - Duplicate names: compare trimmed, lower case, single-spaced names.
-- Weekly sets per category: week starts Sunday (local time), skip the
-  categories Upper, Lower, Push, Pull.
+- Weekly sets per category: week starts Sunday (local time). Every category
+  with sets that week counts, whatever it is called.
 - An exercise used in any workout can't be deleted.
 - Renaming or deleting a category updates every exercise that uses it.
