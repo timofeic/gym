@@ -18,8 +18,9 @@ final class GymUITests: XCTestCase {
     }
 
     func testSeededHistoryShowsOnHome() {
+        // The chart is at the top; the seeded workout may be below the fold.
+        XCTAssertTrue(app.descendants(matching: .any)["weekChart"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Bench Press: 3 × 8 @ 60 kg"].appears(in: app))
-        XCTAssertTrue(app.otherElements["weekChart"].exists || app.images["weekChart"].exists || app.descendants(matching: .any)["weekChart"].exists)
     }
 
     func testLoggingAWorkoutAddsItToRecentWorkouts() {
