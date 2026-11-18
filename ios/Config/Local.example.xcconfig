@@ -1,0 +1,16 @@
+// Copy to Local.xcconfig and fill in. Local.xcconfig is git-ignored.
+// Local dev against `npx supabase start` + `npm run dev` in gym-app:
+SUPABASE_ANON_KEY = <anon key from `npx supabase status`>
+DEV_LOGIN_EMAIL = lifter@example.test
+
+// Production (Vercel + hosted Supabase):
+// GYM_SERVICE_URL = https:$(SLASH)$(SLASH)your-app.vercel.app
+// SUPABASE_URL = https:$(SLASH)$(SLASH)<project-ref>.supabase.co
+// SUPABASE_ANON_KEY = <anon key>
+// DEV_LOGIN_EMAIL =
+
+// Google sign-in ids are already in App.xcconfig. Only override them to test
+// another Google Cloud project:
+// GOOGLE_IOS_CLIENT_ID = <ios client id>.apps.googleusercontent.com
+// GOOGLE_WEB_CLIENT_ID = <web client id>
+// GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.<ios client id>

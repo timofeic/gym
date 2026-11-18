@@ -1,0 +1,18 @@
+{
+  "runner": "bash scripts/test.sh {files}",
+  "dependencies": {
+    "gym-app/lib/native/**": ["gym-app/lib/native/handlers.test.ts", "gym-app/lib/native/supabase.integration.test.ts"],
+    "gym-app/app/api/native/**": ["gym-app/lib/native/handlers.test.ts"],
+    "gym-app/scripts/**": ["gym-app/lib/native/supabase.integration.test.ts"],
+    "gym-app/supabase/**": ["gym-app/lib/native/supabase.integration.test.ts"],
+    "gym-app/vitest.config.ts": ["gym-app/lib/native/handlers.test.ts"],
+    "gym-app/package*.json": ["gym-app/lib/native/handlers.test.ts"],
+    "agent/**": ["agent/tests/test_logic.py", "agent/tests/test_tools.py", "agent/tests/test_data.py", "agent/tests/test_claude_request.py", "agent/tests/test_integration.py"],
+    "ios/Packages/GymCore/**": ["ios/Packages/GymCore/Tests/GymCoreTests/GymCoreTests.swift"],
+    "ios/Gym/**": ["ios/GymUITests/GymUITests.swift"],
+    "ios/GymUITests/**": ["ios/GymUITests/GymUITests.swift"],
+    "ios/project.yml": ["ios/GymUITests/GymUITests.swift"],
+    "scripts/test.sh": ["gym-app/lib/native/handlers.test.ts"],
+    ".gitignore": [], "gym-app/.gitignore": [], "ios/.gitignore": [], "ios/Config/**": [], "docs/**": [], "*.md": []
+  }
+}

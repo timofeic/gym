@@ -1,0 +1,24 @@
+// Production settings for Release builds (TestFlight and the App Store).
+// Deliberately does NOT include Local.xcconfig, so an archive from a clean
+// checkout on any Mac points at the same servers.
+// In xcconfig files "//" starts a comment, so URLs use $(SLASH).
+SLASH = /
+
+// Sign-in service and voice tokens: the gym app's Vercel production URL
+// (Vercel project gym-track). Needs the /api/native/* routes deployed.
+GYM_SERVICE_URL = https:$(SLASH)$(SLASH)gym-overload.vercel.app
+
+// Hosted Supabase. The anon key is public by design (row-level security
+// guards the data); it is the same value the web app ships to browsers.
+SUPABASE_URL = https:$(SLASH)$(SLASH)xpiaiqajgbinkhcegops.supabase.co
+SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaWFpcWFqZ2JpbmtoY2Vnb3BzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MjUwMDcsImV4cCI6MjA1MTIwMTAwN30.uodAModJxNgIoMDoutdqW7gjndmiK_gSMqRpKpUBVjM
+
+// Never set in Release. The service refuses dev sign-in in production anyway.
+DEV_LOGIN_EMAIL =
+
+// Google sign-in. Client ids are public (they ship inside the app), not secrets.
+// iOS client "Gym iPhone app" for com.timofeic.gym and the web app's client
+// (AUTH_GOOGLE_ID), both in Google Cloud project gym-tracker.
+GOOGLE_IOS_CLIENT_ID = 903695837668-c65vq3ldr9i7nthm1jlq3793uutbo74l.apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_ID = 903695837668-aunam6fbg8bl6bceuvtc3dlccm0aph9u.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.903695837668-c65vq3ldr9i7nthm1jlq3793uutbo74l
